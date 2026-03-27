@@ -1,50 +1,37 @@
-# FastAPI Template Documentation
+# Slot Booking Documentation
 
-This documentation set turns the repository into a reusable product template with configurable modules, pluggable providers, and deployment-ready operating guidance.
+This `docs/` directory now contains the slot booking system documentation that previously lived in the separate `Slot Booking System/` folder, alongside the existing project onboarding and template-operating guides that still apply to this repository.
 
 ## Documentation Structure
 
-- `requirements/` defines scope, personas, and success criteria.
-- `analysis/` captures domain rules, workflows, actors, and events.
-- `high-level-design/` explains the architecture and major runtime flows.
-- `detailed-design/` drills into API contracts, components, and data models.
-- `infrastructure/` describes environments, networking, deployment, and CI/CD.
-- `edge-cases/` records template-specific failure modes and operational concerns.
-- `implementation/` gives build, rollout, and testing playbooks.
-- `onboarding/` helps teams bootstrap a fresh project from the template.
-- `onboarding/project-orientation.md` explains how the whole project fits together before you start changing it.
-- `implementation/working-principles.md` explains the design rules the template follows.
-- `onboarding/configuration-management.md` explains how configuration moves through backend, web, and mobile.
-- `onboarding/modifying-the-template.md` gives a safe process for future modifications.
-- `onboarding/template-finalization-checklist.md` gives the handoff checklist for turning the starter into a real product.
-- `infrastructure/production-hardening-checklist.md` lists the deployment reviews that still belong to each downstream project.
+- `requirements/` defines the slot booking scope, actors, and user stories.
+- `analysis/` captures use cases, workflows, business rules, and domain events.
+- `high-level-design/` explains the booking architecture, data flow, and system interactions.
+- `detailed-design/` covers API design, components, data models, and runtime behavior.
+- `infrastructure/` documents deployment, networking, and cloud topology.
+- `edge-cases/` records booking-specific operational, payment, notification, and availability scenarios.
+- `implementation/` gives code-level guidance, architecture views, and implementation sequencing.
+- `onboarding/` keeps the repository-specific setup and template transition guidance for this codebase.
 
 ## Key Features
 
-- Feature-flagged modules for auth, multi-tenancy, notifications, analytics, finance, and websockets.
-- Provider-driven outbound communications for email, push, SMS, analytics, and payments.
-- Domain-aware Casbin RBAC with SQL-managed roles and permissions mirrored into runtime policy tuples.
-- Multi-device notification registry across Web Push, FCM, and OneSignal.
-- Database-backed general settings with environment fallback and migration seeding.
-- Shared backend, web, and mobile runtime capability discovery, including public general settings.
-- Centralized operational configuration for logging, observability, rate limits, storage, Celery, cookies, hosts, and websocket behavior.
-- CI, environment, and release documentation for reuse across future projects.
+- End-to-end slot booking coverage across requirements, analysis, design, infrastructure, and implementation.
+- Booking-specific edge case documentation for slot availability, payments, cancellations, notifications, and operations.
+- Mermaid-based diagrams for use cases, flows, architecture, deployment, and component structure.
+- Repository onboarding guides that still help teams run, configure, and evolve this project safely.
 
 ## Getting Started
 
-1. Read [requirements/requirements.md](/Users/ankit/Projects/Python/fastapi/fastapi_template/docs/requirements/requirements.md).
-2. Read [onboarding/project-orientation.md](/Users/ankit/Projects/Python/fastapi/fastapi_template/docs/onboarding/project-orientation.md).
-3. Follow [onboarding/local-setup.md](/Users/ankit/Projects/Python/fastapi/fastapi_template/docs/onboarding/local-setup.md).
-4. Understand config flow with [onboarding/configuration-management.md](/Users/ankit/Projects/Python/fastapi/fastapi_template/docs/onboarding/configuration-management.md).
-5. Follow [onboarding/template-finalization-checklist.md](/Users/ankit/Projects/Python/fastapi/fastapi_template/docs/onboarding/template-finalization-checklist.md) before you start deleting or renaming template features.
-6. Configure providers using [onboarding/provider-configuration.md](/Users/ankit/Projects/Python/fastapi/fastapi_template/docs/onboarding/provider-configuration.md).
-7. Choose enabled modules and environment profile from [infrastructure/environment-configuration.md](/Users/ankit/Projects/Python/fastapi/fastapi_template/docs/infrastructure/environment-configuration.md).
-8. Understand authorization flow with [implementation/casbin-rbac.md](/Users/ankit/Projects/Python/fastapi/fastapi_template/docs/implementation/casbin-rbac.md).
-9. Validate docs with `python3 scripts/validate_documentation.py`.
+1. Read `requirements/requirements.md`.
+2. Continue with `analysis/use-case-diagram.md` and `analysis/use-case-descriptions.md`.
+3. Review `high-level-design/architecture-diagram.md` and `high-level-design/domain-model.md`.
+4. Check `detailed-design/api-design.md` and `detailed-design/erd-database-schema.md`.
+5. Use `implementation/implementation-playbook.md` for execution planning.
+6. Follow `onboarding/local-setup.md` if you need to run the repository locally.
+7. Validate the documentation with `python3 scripts/validate_documentation.py`.
 
 ## Documentation Status
 
-- Phase coverage: requirements, analysis, design, infrastructure, edge cases, implementation, onboarding.
-- Diagram coverage: Mermaid-based system, process, architecture, and deployment views.
-- Validation coverage: enforced by `scripts/validate_documentation.py`.
-- Current status: template docs aligned with the Project-Ideas structure and extended for provider-driven runtime configuration, database-backed settings overrides, and operational configuration guidance.
+- Slot booking design documents have been merged into the main `docs/` tree.
+- The duplicate `Slot Booking System/` documentation folder has been removed.
+- Repository onboarding and template transition docs are still present because they remain relevant to this codebase.

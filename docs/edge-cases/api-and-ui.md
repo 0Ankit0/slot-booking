@@ -1,6 +1,15 @@
-# API and UI
+# Edge Cases - API & UI
 
-- Clients must treat capability discovery as the source of truth for module visibility.
-- Mobile and web should degrade gracefully when a provider is configured but not ready.
-- System APIs must remain lightweight so bootstrapping does not slow first render.
-- Admin-only actions should stay hidden and protected even if a route is guessed.
+### 5.1. Booking UI Shows Stale Availability
+* **Scenario**: UI cache shows a slot as available after it was booked.
+* **Impact**: Failed booking attempts.
+* **Solution**:
+    * **Cache**: Short TTL and invalidate on booking events.
+    * **UI**: Re-check availability at confirmation step.
+
+### 5.2. Session Expired Mid-Checkout
+* **Scenario**: User session expires during checkout.
+* **Impact**: Abandoned bookings and failed payments.
+* **Solution**:
+    * **Auth**: Refresh tokens and autosave progress.
+    * **UI**: Prompt re-auth without losing context.

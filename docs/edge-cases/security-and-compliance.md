@@ -1,7 +1,15 @@
-# Security and Compliance
+# Edge Cases - Security & Compliance
 
-- Authorization checks must use the correct Casbin domain. A tenant-scoped request evaluated in the `global` domain can accidentally bypass intended tenant isolation.
-- Public push config must never expose secrets or server-side credentials.
-- Provider webhooks and callbacks require signature verification in production projects.
-- Secrets must be loaded from environment or secret managers, never committed.
-- Health endpoints should avoid leaking sensitive configuration details.
+### 6.1. Unauthorized Provider Access
+* **Scenario**: A provider accesses another provider’s bookings.
+* **Impact**: Data leakage and compliance risk.
+* **Solution**:
+    * **Authorization**: Enforce tenant and provider-level RBAC.
+    * **Audit**: Log all access to booking records.
+
+### 6.2. PII in Logs
+* **Scenario**: Sensitive data is logged unintentionally.
+* **Impact**: Compliance violations.
+* **Solution**:
+    * **Redaction**: Mask PII in logs.
+    * **Controls**: Restricted log access and retention limits.
