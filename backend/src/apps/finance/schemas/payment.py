@@ -10,16 +10,15 @@ from src.apps.finance.models.payment import PaymentProvider, PaymentStatus
 from src.apps.iam.utils.hashid import decode_id, encode_id
 
 
-# ---------------------------------------------------------------------------
-# Generic / provider-agnostic schemas
-# ---------------------------------------------------------------------------
-
 class InitiatePaymentRequest(BaseModel):
     """Request body to initiate a payment regardless of provider."""
     provider: PaymentProvider
-    amount: int  # smallest currency unit (paisa for NPR)
+    amount: int  # smallest currency unit
     purchase_order_id: str
     purchase_order_name: str
+    booking_id: Optional[int | str] = None
+    tenant_id: Optional[int | str] = None
+    provider_id: Optional[int | str] = None
     return_url: str
     website_url: str = ""
     customer_name: Optional[str] = None
@@ -33,15 +32,25 @@ class InitiatePaymentRequest(BaseModel):
             raise ValueError("amount must be a positive integer (in smallest currency unit)")
         return v
 
+    @field_validator("booking_id", "tenant_id", "provider_id", mode="before")
+    @classmethod
+    def decode_optional_ids(cls, value: int | str | None) -> int | None:
+        if isinstance(value, str):
+            decoded = decode_id(value)
+            if decoded is None:
+                raise ValueError("Invalid hashid identifier")
+            return decoded
+        return value
+
 
 class InitiatePaymentResponse(BaseModel):
     """Response after successfully initiating a payment."""
-    transaction_id: int          # our internal DB id
+    transaction_id: int
     provider: PaymentProvider
     status: PaymentStatus
-    payment_url: Optional[str] = None   # URL to redirect the user to
-    provider_pidx: Optional[str] = None # Khalti pidx / eSewa ref
-    extra: Optional[dict[str, Any]] = None  # provider-specific extras
+    payment_url: Optional[str] = None
+    provider_pidx: Optional[str] = None
+    extra: Optional[dict[str, Any]] = None
 
     @field_serializer("transaction_id")
     def serialize_transaction_id(self, value: int) -> str:
@@ -51,12 +60,11 @@ class InitiatePaymentResponse(BaseModel):
 class VerifyPaymentRequest(BaseModel):
     """Request body to verify / confirm a payment callback."""
     provider: PaymentProvider
-    pidx: Optional[str] = None          # Khalti uses pidx
-    oid: Optional[str] = None           # eSewa uses oid (our purchase_order_id)
-    refId: Optional[str] = None         # eSewa legacy refId
-    # eSewa v2 passes a base64-encoded `data` query param from callback
+    pidx: Optional[str] = None
+    oid: Optional[str] = None
+    refId: Optional[str] = None
     data: Optional[str] = None
-    transaction_id: Optional[int] = None  # our internal transaction id
+    transaction_id: Optional[int] = None
 
     @field_validator("transaction_id", mode="before")
     @classmethod
@@ -92,6 +100,9 @@ class PaymentTransactionRead(BaseModel):
     currency: str
     purchase_order_id: str
     purchase_order_name: str
+    booking_id: Optional[int] = None
+    tenant_id: Optional[int] = None
+    provider_id: Optional[int] = None
     provider_transaction_id: Optional[str]
     provider_pidx: Optional[str]
     return_url: str
@@ -100,17 +111,12 @@ class PaymentTransactionRead(BaseModel):
 
     model_config = {"from_attributes": True}
 
-    @field_serializer("id")
-    def serialize_id(self, value: int) -> str:
-        return encode_id(value)
+    @field_serializer("id", "booking_id", "tenant_id", "provider_id")
+    def serialize_id(self, value: Optional[int]) -> Optional[str]:
+        return encode_id(value) if value is not None else None
 
-
-# ---------------------------------------------------------------------------
-# Khalti-specific schemas (v2 API)
-# ---------------------------------------------------------------------------
 
 class KhaltiInitiateRequest(BaseModel):
-    """Payload sent to Khalti /epayment/initiate/ endpoint."""
     return_url: str
     website_url: str
     amount: int
@@ -120,7 +126,6 @@ class KhaltiInitiateRequest(BaseModel):
 
 
 class KhaltiInitiateResponse(BaseModel):
-    """Response from Khalti /epayment/initiate/."""
     pidx: str
     payment_url: str
     expires_at: Optional[str] = None
@@ -128,49 +133,35 @@ class KhaltiInitiateResponse(BaseModel):
 
 
 class KhaltiLookupRequest(BaseModel):
-    """Payload sent to Khalti /epayment/lookup/."""
     pidx: str
 
 
 class KhaltiLookupResponse(BaseModel):
-    """Response from Khalti /epayment/lookup/."""
     pidx: str
     total_amount: int
-    status: str          # Completed | Pending | Expired | User canceled
+    status: str
     transaction_id: Optional[str] = None
     fee: Optional[int] = None
     refunded: bool = False
 
 
-# ---------------------------------------------------------------------------
-# eSewa-specific schemas (v2 API)
-# ---------------------------------------------------------------------------
-
 class EsewaInitiateData(BaseModel):
-    """
-    Fields required to build the eSewa v2 form POST.
-    The merchant must compute the HMAC-SHA256 signature before submitting.
-    """
-    amount: int                  # in paisa  (e.g. 100 = 1 NPR? No, eSewa uses rupees directly)
+    amount: int
     tax_amount: int = 0
     total_amount: int
-    transaction_uuid: str        # our unique order id
-    product_code: str            # merchant code e.g. EPAYTEST
+    transaction_uuid: str
+    product_code: str
     product_service_charge: int = 0
     product_delivery_charge: int = 0
     success_url: str
     failure_url: str
     signed_field_names: str = "total_amount,transaction_uuid,product_code"
-    signature: str               # HMAC-SHA256 of signed_field_names values
+    signature: str
 
 
 class EsewaCallbackData(BaseModel):
-    """
-    Decoded payload from eSewa's base64-encoded callback `data` param.
-    eSewa sends this to success_url?data=<base64>
-    """
     transaction_code: Optional[str] = None
-    status: Optional[str] = None           # COMPLETE / PENDING / FULL_REFUND
+    status: Optional[str] = None
     total_amount: Optional[str] = None
     transaction_uuid: Optional[str] = None
     product_code: Optional[str] = None

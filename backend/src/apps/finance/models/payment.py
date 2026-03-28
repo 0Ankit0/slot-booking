@@ -46,6 +46,29 @@ class PaymentTransactionBase(SQLModel):
         max_length=255,
         description="Human-readable order description"
     )
+    booking_id: Optional[int] = Field(
+        default=None,
+        foreign_key="booking.id",
+        index=True,
+        description="Linked booking id when payment is initiated from booking checkout"
+    )
+    tenant_id: Optional[int] = Field(
+        default=None,
+        foreign_key="tenant.id",
+        index=True,
+        description="Tenant associated with this transaction"
+    )
+    provider_id: Optional[int] = Field(
+        default=None,
+        foreign_key="provider.id",
+        index=True,
+        description="Provider associated with this transaction"
+    )
+    reconciliation_reference: Optional[str] = Field(
+        default=None,
+        max_length=255,
+        description="Reference used for payout reconciliation"
+    )
     # Provider-assigned identifiers
     provider_transaction_id: Optional[str] = Field(
         default=None,
@@ -114,6 +137,12 @@ class PaymentWebhookBase(SQLModel):
     is_verified: bool = Field(
         default=False,
         description="Whether the webhook signature/data has been verified"
+    )
+    idempotency_key: Optional[str] = Field(
+        default=None,
+        max_length=128,
+        index=True,
+        description="Used to safely replay provider callbacks"
     )
     ip_address: Optional[str] = Field(
         default=None,

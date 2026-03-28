@@ -103,3 +103,13 @@ export {
   useSecurityIncident,
   useUpdateSecurityIncident,
 } from './use-observability';
+
+export {
+  useMyBookings,
+  useSlots,
+  useCreateBooking,
+  useCancelBooking,
+  useBookingAnalyticsSummary,
+  useProviderEarningsSummary,
+  useCheckoutBooking,
+} from './use-bookings';

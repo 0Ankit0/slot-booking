@@ -17,6 +17,7 @@ import {
   UserCheck,
   UserX,
   Users,
+  CalendarRange,
 } from 'lucide-react';
 
 export default function AdminDashboardPage() {
@@ -100,6 +101,13 @@ export default function AdminDashboardPage() {
       label: 'Security Review',
       desc: 'Triage suspicious activity',
       color: 'text-red-600',
+    },
+    {
+      href: '/admin/bookings',
+      icon: CalendarRange,
+      label: 'Booking Analytics',
+      desc: 'Track booking KPIs and disputes',
+      color: 'text-indigo-600',
     },
     {
       href: '/tokens',

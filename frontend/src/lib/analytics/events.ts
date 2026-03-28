@@ -35,3 +35,13 @@ export const TenantEvents = {
   TENANT_MEMBER_INVITED: 'tenant_member_invited',
   TENANT_MEMBER_JOINED: 'tenant_member_joined',
 } as const;
+
+
+export const BookingEvents = {
+  BOOKING_CREATED: 'booking_created',
+  BOOKING_CANCELLED: 'booking_cancelled',
+  SLOT_HELD: 'slot_held',
+  SLOT_RELEASED: 'slot_released',
+  WAITLIST_JOINED: 'waitlist_joined',
+  DISPUTE_OPENED: 'dispute_opened',
+} as const;
