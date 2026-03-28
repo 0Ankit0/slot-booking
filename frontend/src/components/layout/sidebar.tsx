@@ -12,6 +12,7 @@ import {
   Key,
   ArrowRight,
   Map,
+  CalendarClock,
 } from 'lucide-react';
 import { OrgSwitcher } from './org-switcher';
 import { useSystemCapabilities } from '@/hooks/use-system';
@@ -22,6 +23,7 @@ const mainNavigation = [
   { name: 'Profile', href: '/profile', icon: User },
   { name: 'Tenants', href: '/tenants', icon: Building2, feature: 'multitenancy' },
   { name: 'Payments', href: '/finances', icon: CreditCard, feature: 'finance' },
+  { name: 'Bookings', href: '/bookings', icon: CalendarClock },
   { name: 'Notifications', href: '/notifications', icon: Bell, feature: 'notifications' },
   { name: 'Maps', href: '/maps', icon: Map, feature: 'maps' },
   { name: 'Active Sessions', href: '/tokens', icon: Key, feature: 'auth' },
