@@ -19,6 +19,7 @@ function PaymentCallbackInner() {
   const router = useRouter();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('');
+  const nextHref = searchParams.get('next')?.startsWith('/') ? searchParams.get('next')! : '/finances';
 
   const verifyPayment = useVerifyPayment();
 
@@ -40,7 +41,7 @@ function PaymentCallbackInner() {
           if (result.status === 'completed') {
             setStatus('success');
             setMessage(`Payment of ${result.amount ? result.amount / 100 : ''} completed successfully.`);
-            setTimeout(() => router.push('/finances'), 4000);
+            setTimeout(() => router.push(nextHref), 4000);
           } else {
             setStatus('error');
             setMessage(`Payment status: ${result.status}. Please try again or contact support.`);
@@ -71,9 +72,9 @@ function PaymentCallbackInner() {
           <div className="space-y-4">
             <CheckCircle className="h-14 w-14 text-green-500 mx-auto" />
             <p className="text-gray-700 font-medium">{message}</p>
-            <p className="text-sm text-gray-400">Redirecting to payments…</p>
-            <Link href="/finances" className="text-sm text-blue-600 hover:underline">
-              Go to Payments
+            <p className="text-sm text-gray-400">Redirecting you back…</p>
+            <Link href={nextHref} className="text-sm text-blue-600 hover:underline">
+              Continue
             </Link>
           </div>
         )}

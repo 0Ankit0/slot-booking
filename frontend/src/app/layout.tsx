@@ -1,22 +1,32 @@
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import { Fraunces, IBM_Plex_Mono, Manrope } from 'next/font/google';
 import './globals.css';
 import { Providers } from '@/components/providers';
 import { THEME_PRESETS } from '@/lib/themes';
+import { BRAND_DESCRIPTION, BRAND_NAME, BRAND_TAGLINE } from '@/lib/brand';
 
-const geistSans = Geist({
+const bodyFont = Manrope({
   variable: '--font-geist-sans',
   subsets: ['latin'],
 });
 
-const geistMono = Geist_Mono({
+const monoFont = IBM_Plex_Mono({
   variable: '--font-geist-mono',
+  subsets: ['latin'],
+  weight: ['400', '500', '600'],
+});
+
+const displayFont = Fraunces({
+  variable: '--font-brand-display',
   subsets: ['latin'],
 });
 
 export const metadata: Metadata = {
-  title: 'Fastapi Template',
-  description: 'Modern Fastapi Template platform',
+  title: {
+    default: `${BRAND_NAME} | ${BRAND_TAGLINE}`,
+    template: `%s | ${BRAND_NAME}`,
+  },
+  description: BRAND_DESCRIPTION,
 };
 
 export default function RootLayout({
@@ -69,7 +79,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body className={`${bodyFont.variable} ${monoFont.variable} ${displayFont.variable} antialiased`}>
         <Providers>{children}</Providers>
       </body>
     </html>

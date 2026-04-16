@@ -10,7 +10,11 @@ class BookingRepository {
 
   BookingRepository(this._dioClient);
 
-  Future<BookingListResponse> getMyBookings({String? tenantId, String? cursor, int limit = 20}) async {
+  Future<BookingListResponse> getMyBookings({
+    String? tenantId,
+    String? cursor,
+    int limit = 20,
+  }) async {
     try {
       final response = await _dioClient.dio.get(
         ApiEndpoints.bookings,
@@ -20,7 +24,55 @@ class BookingRepository {
           'limit': limit,
         },
       );
-      return BookingListResponse.fromJson(response.data as Map<String, dynamic>);
+      return BookingListResponse.fromJson(
+          response.data as Map<String, dynamic>);
+    } catch (e) {
+      throw ErrorHandler.handle(e);
+    }
+  }
+
+  Future<BookingQuoteResponse> quoteBooking(BookingQuoteRequest request) async {
+    try {
+      final response = await _dioClient.dio.post(
+        ApiEndpoints.bookingQuote,
+        data: request.toJson(),
+      );
+      return BookingQuoteResponse.fromJson(
+          response.data as Map<String, dynamic>);
+    } catch (e) {
+      throw ErrorHandler.handle(e);
+    }
+  }
+
+  Future<Booking> createBooking(
+    BookingCreateRequest request, {
+    required String idempotencyKey,
+    required String requestId,
+  }) async {
+    try {
+      final response = await _dioClient.dio.post(
+        ApiEndpoints.bookings,
+        data: request.toJson(),
+        options: Options(
+          headers: {
+            'Idempotency-Key': idempotencyKey,
+            'X-Request-Id': requestId,
+            'X-Tenant-Id': request.tenantId,
+          },
+        ),
+      );
+      return Booking.fromJson(response.data as Map<String, dynamic>);
+    } catch (e) {
+      throw ErrorHandler.handle(e);
+    }
+  }
+
+  Future<Booking> getBooking(String bookingId) async {
+    try {
+      final response = await _dioClient.dio.get(
+        ApiEndpoints.bookingDetail(bookingId),
+      );
+      return Booking.fromJson(response.data as Map<String, dynamic>);
     } catch (e) {
       throw ErrorHandler.handle(e);
     }
@@ -36,7 +88,8 @@ class BookingRepository {
           },
         ),
       );
-      return BookingCancelResponse.fromJson(response.data as Map<String, dynamic>);
+      return BookingCancelResponse.fromJson(
+          response.data as Map<String, dynamic>);
     } catch (e) {
       throw ErrorHandler.handle(e);
     }

@@ -16,6 +16,18 @@ export interface Provider {
   status: BookingProviderStatus;
 }
 
+export interface ProviderCreateInput {
+  tenant_id: string;
+  name: string;
+  description: string;
+}
+
+export interface ProviderUpdateInput {
+  name?: string;
+  description?: string;
+  status?: BookingProviderStatus;
+}
+
 export interface ResourceCategory {
   id: string;
   tenant_id: string;
@@ -61,6 +73,29 @@ export interface Resource {
   is_active: boolean;
 }
 
+export interface ResourceCreateInput {
+  provider_id: string;
+  tenant_id: string;
+  name: string;
+  description: string;
+  category: string;
+  timezone: string;
+  base_price_minor: number;
+  currency: string;
+  max_group_size: number;
+}
+
+export interface ResourceUpdateInput {
+  name?: string;
+  description?: string;
+  category?: string;
+  timezone?: string;
+  base_price_minor?: number;
+  currency?: string;
+  max_group_size?: number;
+  is_active?: boolean;
+}
+
 export interface Slot {
   id: string;
   resource_id: string;
@@ -69,6 +104,21 @@ export interface Slot {
   ends_at: string;
   status: SlotStatus;
   hold_expires_at?: string | null;
+}
+
+export interface BookingQuoteInput {
+  tenant_id: string;
+  resource_id: string;
+  amount_minor: number;
+  promo_code?: string;
+  group_size: number;
+}
+
+export interface BookingQuote {
+  base_amount_minor: number;
+  promo_discount_minor: number;
+  group_surcharge_minor: number;
+  final_amount_minor: number;
 }
 
 export interface Booking {

@@ -106,21 +106,6 @@ async def initiate_payment(
     Returns the payment URL (Khalti) or form fields (eSewa) the client
     should use to redirect / submit the user to the provider's checkout.
     """
-    if webhook_idempotency_key:
-        existing_webhook_result = await db.execute(
-            select(PaymentWebhook).where(PaymentWebhook.idempotency_key == webhook_idempotency_key)
-        )
-        existing_webhook = existing_webhook_result.scalars().first()
-        if existing_webhook and existing_webhook.transaction_id:
-            existing_tx = await db.get(PaymentTransaction, existing_webhook.transaction_id)
-            if existing_tx is not None:
-                return VerifyPaymentResponse(
-                    transaction_id=existing_tx.id,
-                    provider=existing_tx.provider,
-                    status=existing_tx.status,
-                    amount=existing_tx.amount,
-                    provider_transaction_id=existing_tx.provider_transaction_id,
-                )
     provider_svc = _get_provider(request_body.provider)
     try:
         result = await provider_svc.initiate_payment(request_body, db)

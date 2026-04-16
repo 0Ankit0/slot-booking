@@ -11,6 +11,7 @@ class AppConstants {
   static const String otpVerifyRoute = '/otp-verify';
   static const String resetPasswordRoute = '/reset-password';
   static const String homeRoute = '/home';
+  static const String resourcesRoute = '/home/resources';
   static const String notificationsRoute = '/home/notifications';
   static const String settingsRoute = '/home/settings';
   static const String profileRoute = '/home/profile';

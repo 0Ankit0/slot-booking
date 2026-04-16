@@ -50,13 +50,12 @@ export function Header() {
   };
 
   return (
-    <header className="fixed top-0 left-64 right-0 z-10 h-16 bg-white border-b border-gray-200">
+    <header className="fixed left-64 right-0 top-0 z-10 h-16 border-b border-[rgba(15,20,36,0.08)] bg-[rgba(252,250,245,0.88)] backdrop-blur-xl">
       <div className="flex h-full items-center justify-between px-6">
-        {/* Left: tenant name */}
         <div className="flex items-center gap-2">
           {tenant && (
-            <span className="text-sm text-gray-500">
-              Organization: <span className="font-medium text-gray-900">{tenant.name}</span>
+            <span className="inline-flex items-center rounded-full border border-[rgba(20,108,107,0.12)] bg-[rgba(20,108,107,0.08)] px-3 py-1 text-sm text-gray-700">
+              Organization: <span className="ml-1 font-medium text-gray-900">{tenant.name}</span>
             </span>
           )}
         </div>
@@ -69,7 +68,7 @@ export function Header() {
           <div ref={notifRef} className="relative">
             <button
               onClick={() => { setNotifOpen((o) => !o); setUserOpen(false); }}
-              className="relative p-2 text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-100"
+              className="relative rounded-xl p-2 text-gray-500 transition hover:bg-white hover:text-gray-700"
               aria-label="Notifications"
             >
               <Bell className="h-5 w-5" />
@@ -81,8 +80,7 @@ export function Header() {
             </button>
 
             {notifOpen && (
-              <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden z-50">
-                {/* Header */}
+              <div className="absolute right-0 z-50 mt-2 w-80 overflow-hidden rounded-[24px] border border-[rgba(15,20,36,0.08)] bg-[rgba(252,250,245,0.98)] shadow-[0_24px_60px_rgba(15,20,36,0.16)]">
                 <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
                   <span className="text-sm font-semibold text-gray-900">Notifications</span>
                   {unreadCount > 0 && (
@@ -96,7 +94,6 @@ export function Header() {
                   )}
                 </div>
 
-                {/* List */}
                 <div className="max-h-72 overflow-y-auto divide-y divide-gray-50">
                   {notifications.length === 0 ? (
                     <div className="py-8 text-center">
@@ -128,7 +125,6 @@ export function Header() {
                   )}
                 </div>
 
-                {/* Footer */}
                 <Link
                   href="/notifications"
                   onClick={() => setNotifOpen(false)}
@@ -144,11 +140,11 @@ export function Header() {
           <div ref={userRef} className="relative">
             <button
               onClick={() => { setUserOpen((o) => !o); setNotifOpen(false); }}
-              className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+              className="flex items-center gap-2 rounded-xl px-2 py-1.5 transition-colors hover:bg-white"
               aria-label="User menu"
             >
-              <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-                <User className="h-4 w-4 text-blue-600" />
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[rgba(197,138,73,0.16)]">
+                <User className="h-4 w-4 text-[var(--brand-night)]" />
               </div>
               <span className="text-sm font-medium text-gray-700 max-w-[120px] truncate">
                 {user?.first_name || user?.username || user?.email || 'User'}
@@ -156,8 +152,7 @@ export function Header() {
             </button>
 
             {userOpen && (
-              <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden z-50">
-                {/* Identity */}
+              <div className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-[24px] border border-[rgba(15,20,36,0.08)] bg-[rgba(252,250,245,0.98)] shadow-[0_24px_60px_rgba(15,20,36,0.16)]">
                 <div className="px-4 py-3 border-b border-gray-100">
                   <p className="text-sm font-semibold text-gray-900 truncate">
                     {user?.first_name && user?.last_name
@@ -167,7 +162,6 @@ export function Header() {
                   <p className="text-xs text-gray-500 truncate mt-0.5">{user?.email}</p>
                 </div>
 
-                {/* Menu items */}
                 <div className="py-1">
                   <Link
                     href="/profile"
@@ -187,7 +181,6 @@ export function Header() {
                   </Link>
                 </div>
 
-                {/* Logout */}
                 <div className="border-t border-gray-100 py-1">
                   <button
                     onClick={() => { setUserOpen(false); setShowLogoutDialog(true); }}

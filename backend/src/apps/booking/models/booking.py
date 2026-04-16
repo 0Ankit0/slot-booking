@@ -3,14 +3,10 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 from enum import Enum
-from typing import Optional, TYPE_CHECKING
+from typing import Optional
 
 from sqlalchemy import UniqueConstraint
-from sqlmodel import Field, Relationship, SQLModel
-
-if TYPE_CHECKING:
-    from src.apps.iam.models.user import User
-
+from sqlmodel import Field, SQLModel
 
 class ProviderStatus(str, Enum):
     PENDING = "pending"
@@ -233,9 +229,6 @@ class Booking(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     cancelled_at: Optional[datetime] = Field(default=None)
-
-    user: Optional["User"] = Relationship()
-
 
 class BookingSlot(SQLModel, table=True):
     __table_args__ = (

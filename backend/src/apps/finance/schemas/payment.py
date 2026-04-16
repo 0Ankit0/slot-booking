@@ -4,10 +4,10 @@ Includes generic schemas usable across all providers, plus provider-specific
 schemas for Khalti and eSewa.
 """
 from typing import Any, Optional
-from pydantic import BaseModel, field_serializer, field_validator
+from pydantic import BaseModel, field_validator
 
 from src.apps.finance.models.payment import PaymentProvider, PaymentStatus
-from src.apps.iam.utils.hashid import decode_id, encode_id
+from src.apps.iam.utils.hashid import decode_id
 
 
 class InitiatePaymentRequest(BaseModel):
@@ -52,10 +52,6 @@ class InitiatePaymentResponse(BaseModel):
     provider_pidx: Optional[str] = None
     extra: Optional[dict[str, Any]] = None
 
-    @field_serializer("transaction_id")
-    def serialize_transaction_id(self, value: int) -> str:
-        return encode_id(value)
-
 
 class VerifyPaymentRequest(BaseModel):
     """Request body to verify / confirm a payment callback."""
@@ -86,10 +82,6 @@ class VerifyPaymentResponse(BaseModel):
     provider_transaction_id: Optional[str] = None
     extra: Optional[dict[str, Any]] = None
 
-    @field_serializer("transaction_id")
-    def serialize_transaction_id(self, value: int) -> str:
-        return encode_id(value)
-
 
 class PaymentTransactionRead(BaseModel):
     """Read schema for a stored PaymentTransaction (used in GET endpoints)."""
@@ -110,10 +102,6 @@ class PaymentTransactionRead(BaseModel):
     failure_reason: Optional[str]
 
     model_config = {"from_attributes": True}
-
-    @field_serializer("id", "booking_id", "tenant_id", "provider_id")
-    def serialize_id(self, value: Optional[int]) -> Optional[str]:
-        return encode_id(value) if value is not None else None
 
 
 class KhaltiInitiateRequest(BaseModel):

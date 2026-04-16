@@ -41,6 +41,19 @@ enum PaymentStatus {
   }
 }
 
+String _requiredStringField(Map<String, dynamic> json, String fieldName) {
+  final value = json[fieldName];
+  if (value == null) {
+    throw FormatException('Missing required field: $fieldName');
+  }
+
+  final stringValue = value.toString();
+  if (stringValue.isEmpty) {
+    throw FormatException('Missing required field: $fieldName');
+  }
+  return stringValue;
+}
+
 class InitiatePaymentRequest {
   final PaymentProvider provider;
   final int amount;
@@ -48,6 +61,9 @@ class InitiatePaymentRequest {
   final String purchaseOrderName;
   final String returnUrl;
   final String websiteUrl;
+  final String? bookingId;
+  final String? tenantId;
+  final String? providerId;
   final String? customerName;
   final String? customerEmail;
   final String? customerPhone;
@@ -59,6 +75,9 @@ class InitiatePaymentRequest {
     required this.purchaseOrderName,
     required this.returnUrl,
     required this.websiteUrl,
+    this.bookingId,
+    this.tenantId,
+    this.providerId,
     this.customerName,
     this.customerEmail,
     this.customerPhone,
@@ -73,6 +92,9 @@ class InitiatePaymentRequest {
       'return_url': returnUrl,
       'website_url': websiteUrl,
     };
+    if (bookingId != null) map['booking_id'] = bookingId;
+    if (tenantId != null) map['tenant_id'] = tenantId;
+    if (providerId != null) map['provider_id'] = providerId;
     if (customerName != null) map['customer_name'] = customerName;
     if (customerEmail != null) map['customer_email'] = customerEmail;
     if (customerPhone != null) map['customer_phone'] = customerPhone;
@@ -81,7 +103,7 @@ class InitiatePaymentRequest {
 }
 
 class InitiatePaymentResponse {
-  final int transactionId;
+  final String transactionId;
   final PaymentProvider provider;
   final PaymentStatus status;
   final String? paymentUrl;
@@ -98,13 +120,23 @@ class InitiatePaymentResponse {
   });
 
   factory InitiatePaymentResponse.fromJson(Map<String, dynamic> json) {
+    Map<String, dynamic>? extra;
+    if (json['extra'] is Map) {
+      extra = Map<String, dynamic>.from(json['extra'] as Map);
+      final formFields = extra['form_fields'];
+      if (formFields is Map) {
+        extra['form_fields'] = Map<String, dynamic>.from(formFields);
+      }
+    }
+
     return InitiatePaymentResponse(
-      transactionId: json['transaction_id'] as int,
-      provider: PaymentProvider.fromString(json['provider'] as String? ?? 'khalti'),
+      transactionId: _requiredStringField(json, 'transaction_id'),
+      provider:
+          PaymentProvider.fromString(json['provider'] as String? ?? 'khalti'),
       status: PaymentStatus.fromString(json['status'] as String? ?? 'pending'),
       paymentUrl: json['payment_url'] as String?,
-      providerPidx: json['provider_pidx'] as String?,
-      extra: json['extra'] as Map<String, dynamic>?,
+      providerPidx: json['provider_pidx']?.toString(),
+      extra: extra,
     );
   }
 }
@@ -115,7 +147,7 @@ class VerifyPaymentRequest {
   final String? oid;
   final String? refId;
   final String? data;
-  final int? transactionId;
+  final String? transactionId;
 
   const VerifyPaymentRequest({
     required this.provider,
@@ -138,7 +170,7 @@ class VerifyPaymentRequest {
 }
 
 class VerifyPaymentResponse {
-  final int transactionId;
+  final String transactionId;
   final PaymentProvider provider;
   final PaymentStatus status;
   final int? amount;
@@ -155,25 +187,34 @@ class VerifyPaymentResponse {
   });
 
   factory VerifyPaymentResponse.fromJson(Map<String, dynamic> json) {
+    Map<String, dynamic>? extra;
+    if (json['extra'] is Map) {
+      extra = Map<String, dynamic>.from(json['extra'] as Map);
+    }
+
     return VerifyPaymentResponse(
-      transactionId: json['transaction_id'] as int,
-      provider: PaymentProvider.fromString(json['provider'] as String? ?? 'khalti'),
+      transactionId: _requiredStringField(json, 'transaction_id'),
+      provider:
+          PaymentProvider.fromString(json['provider'] as String? ?? 'khalti'),
       status: PaymentStatus.fromString(json['status'] as String? ?? 'pending'),
-      amount: json['amount'] as int?,
-      providerTransactionId: json['provider_transaction_id'] as String?,
-      extra: json['extra'] as Map<String, dynamic>?,
+      amount: (json['amount'] as num?)?.toInt(),
+      providerTransactionId: json['provider_transaction_id']?.toString(),
+      extra: extra,
     );
   }
 }
 
 class PaymentTransaction {
-  final int id;
+  final String id;
   final PaymentProvider provider;
   final PaymentStatus status;
   final int amount;
   final String currency;
   final String purchaseOrderId;
   final String purchaseOrderName;
+  final String? bookingId;
+  final String? tenantId;
+  final String? providerId;
   final String? providerTransactionId;
   final String? providerPidx;
   final String returnUrl;
@@ -188,6 +229,9 @@ class PaymentTransaction {
     required this.currency,
     required this.purchaseOrderId,
     required this.purchaseOrderName,
+    this.bookingId,
+    this.tenantId,
+    this.providerId,
     this.providerTransactionId,
     this.providerPidx,
     required this.returnUrl,
@@ -197,15 +241,19 @@ class PaymentTransaction {
 
   factory PaymentTransaction.fromJson(Map<String, dynamic> json) {
     return PaymentTransaction(
-      id: json['id'] as int,
-      provider: PaymentProvider.fromString(json['provider'] as String? ?? 'khalti'),
+      id: _requiredStringField(json, 'id'),
+      provider:
+          PaymentProvider.fromString(json['provider'] as String? ?? 'khalti'),
       status: PaymentStatus.fromString(json['status'] as String? ?? 'pending'),
-      amount: json['amount'] as int? ?? 0,
-      currency: json['currency'] as String? ?? 'NPR',
+      amount: (json['amount'] as num?)?.toInt() ?? 0,
+      currency: (json['currency'] as String? ?? 'NPR').toUpperCase(),
       purchaseOrderId: json['purchase_order_id'] as String? ?? '',
       purchaseOrderName: json['purchase_order_name'] as String? ?? '',
-      providerTransactionId: json['provider_transaction_id'] as String?,
-      providerPidx: json['provider_pidx'] as String?,
+      bookingId: json['booking_id']?.toString(),
+      tenantId: json['tenant_id']?.toString(),
+      providerId: json['provider_id']?.toString(),
+      providerTransactionId: json['provider_transaction_id']?.toString(),
+      providerPidx: json['provider_pidx']?.toString(),
       returnUrl: json['return_url'] as String? ?? '',
       websiteUrl: json['website_url'] as String? ?? '',
       failureReason: json['failure_reason'] as String?,

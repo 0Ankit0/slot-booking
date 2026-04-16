@@ -7,12 +7,16 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sess
 from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel
 
+# Set test-only environment variables before importing the app and settings.
+os.environ["TESTING"] = "True"
+os.environ["KHALTI_ENABLED"] = "True"
+os.environ["ESEWA_ENABLED"] = "True"
+os.environ["STRIPE_ENABLED"] = "False"
+os.environ["PAYPAL_ENABLED"] = "False"
+
 from src.main import app
 from src.db import session as db_session_module
 from src.db.session import get_session
-
-# Set TESTING environment variable before importing settings
-os.environ["TESTING"] = "True"
 
 
 @pytest.fixture(scope="function")

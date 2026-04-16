@@ -4,6 +4,17 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
+require_command() {
+  local command_name="$1"
+  if ! command -v "$command_name" >/dev/null 2>&1; then
+    echo "Required command not found: $command_name" >&2
+    exit 1
+  fi
+}
+
+require_command uv
+require_command npm
+
 ./scripts/copy_env_templates.sh
 
 echo "Installing backend dependencies..."
@@ -19,4 +30,7 @@ else
   echo "Flutter is not installed; skipping mobile dependency setup."
 fi
 
-echo "Template setup complete."
+echo "Slot Booking setup complete."
+echo "Next steps:"
+echo "  make dev-up          # Docker Compose stack"
+echo "  ./start_servers.sh   # Repo-native backend + frontend"

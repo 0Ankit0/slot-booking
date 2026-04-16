@@ -2,9 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from src.apps.booking.models import Provider
+from src.apps.booking.models import Provider, ProviderStatus
 from src.apps.booking.schemas import ProviderCreate, ProviderRead, ProviderUpdate, decode_hashid_or_int
 from src.apps.iam.api.deps import get_current_user, get_db
+from src.apps.iam.utils.hashid import encode_id
 from src.apps.iam.models.user import User
 
 router = APIRouter(prefix="/providers", tags=["providers"])
@@ -13,17 +14,29 @@ router = APIRouter(prefix="/providers", tags=["providers"])
 @router.get("/", response_model=dict[str, object])
 async def list_providers(
     db: AsyncSession = Depends(get_db),
+    tenant_id: str | None = Query(default=None),
     cursor: str | None = Query(default=None),
+    q: str | None = Query(default=None, min_length=1, max_length=120),
+    status_filter: ProviderStatus | None = Query(default=None, alias="status"),
     limit: int = Query(default=20, ge=1, le=100),
 ) -> dict[str, object]:
     query = select(Provider).order_by(Provider.id.desc()).limit(limit + 1)
+    if tenant_id:
+        query = query.where(Provider.tenant_id == decode_hashid_or_int(tenant_id))
     if cursor:
         query = query.where(Provider.id < decode_hashid_or_int(cursor))
+    if q:
+        search = f"%{q.strip()}%"
+        query = query.where(
+            Provider.name.ilike(search) | Provider.description.ilike(search)
+        )
+    if status_filter:
+        query = query.where(Provider.status == status_filter)
     result = await db.execute(query)
     rows = result.scalars().all()
     has_more = len(rows) > limit
     items = rows[:limit]
-    next_cursor = str(items[-1].id) if has_more and items else None
+    next_cursor = encode_id(items[-1].id) if has_more and items else None
     return {
         "items": [ProviderRead.model_validate(item) for item in items],
         "next_cursor": next_cursor,

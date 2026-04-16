@@ -1,17 +1,22 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../features/auth/presentation/pages/login_page.dart';
-import '../../features/auth/presentation/pages/register_page.dart';
+
 import '../../features/auth/presentation/pages/forgot_password_page.dart';
+import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/otp_verify_page.dart';
+import '../../features/auth/presentation/pages/register_page.dart';
 import '../../features/auth/presentation/pages/reset_password_page.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
+import '../../features/bookings/presentation/pages/bookings_page.dart';
 import '../../features/home/presentation/pages/home_page.dart';
 import '../../features/notifications/presentation/pages/notifications_page.dart';
 import '../../features/payments/presentation/pages/payments_page.dart';
-import '../../features/bookings/presentation/pages/bookings_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/profile/presentation/pages/tokens_page.dart';
+import '../../features/resources/presentation/pages/booking_checkout_page.dart';
+import '../../features/resources/presentation/pages/resource_detail_page.dart';
+import '../../features/resources/presentation/pages/resources_page.dart';
 import '../../features/settings/presentation/pages/settings_page.dart';
 import '../constants/app_constants.dart';
 
@@ -36,8 +41,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       if (!isAuthenticated && !onAuthPage) {
         return AppConstants.loginRoute;
       }
-      if (isAuthenticated && (location == AppConstants.loginRoute ||
-          location == AppConstants.registerRoute)) {
+      if (isAuthenticated &&
+          (location == AppConstants.loginRoute ||
+              location == AppConstants.registerRoute)) {
         return AppConstants.homeRoute;
       }
       return null;
@@ -66,7 +72,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppConstants.resetPasswordRoute,
         builder: (context, state) {
           final token = state.extra as String? ??
-              state.uri.queryParameters['token'] ?? '';
+              state.uri.queryParameters['token'] ??
+              '';
           return ResetPasswordPage(token: token);
         },
       ),
@@ -74,13 +81,46 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state, navigationShell) =>
             HomePage(navigationShell: navigationShell),
         branches: [
-          // Branch 0: Home
           StatefulShellBranch(
             routes: [
               GoRoute(
                 path: AppConstants.homeRoute,
                 builder: (context, state) => const HomeTab(),
                 routes: [
+                  GoRoute(
+                    path: 'resources',
+                    builder: (context, state) => const ResourcesPage(),
+                    routes: [
+                      GoRoute(
+                        path: ':resourceId',
+                        builder: (context, state) => ResourceDetailPage(
+                          resourceId: state.pathParameters['resourceId'] ?? '',
+                        ),
+                        routes: [
+                          GoRoute(
+                            path: 'checkout',
+                            builder: (context, state) {
+                              final args = state.extra;
+                              if (args is BookingCheckoutPageArgs) {
+                                return BookingCheckoutPage(args: args);
+                              }
+                              return const Scaffold(
+                                body: Center(
+                                  child: Padding(
+                                    padding: EdgeInsets.all(24),
+                                    child: Text(
+                                      'Checkout could not be restored. Please select a slot again.',
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                   GoRoute(
                     path: 'payments',
                     builder: (context, state) => const PaymentsPage(),
@@ -93,7 +133,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
-          // Branch 1: Notifications
           StatefulShellBranch(
             routes: [
               GoRoute(
@@ -102,7 +141,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
-          // Branch 2: Settings
           StatefulShellBranch(
             routes: [
               GoRoute(
@@ -117,7 +155,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
-          // Branch 3: Profile
           StatefulShellBranch(
             routes: [
               GoRoute(

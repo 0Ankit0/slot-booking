@@ -1,42 +1,44 @@
-# Stage 1: Dependencies
 FROM node:20-alpine AS deps
-RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-COPY package.json package-lock.json* ./
-RUN npm ci --only=production
+ENV HUSKY=0
 
-# Stage 2: Builder
+COPY package.json package-lock.json ./
+RUN npm ci
+
 FROM node:20-alpine AS builder
 WORKDIR /app
+
+ARG NEXT_PUBLIC_APP_NAME="Slot Booking"
+ARG NEXT_PUBLIC_API_URL="http://backend.localhost:8000/api/v1"
+ARG NEXT_PUBLIC_WS_URL="ws://backend.localhost:8000"
+
+ENV HUSKY=0 \
+    NEXT_TELEMETRY_DISABLED=1 \
+    NEXT_PUBLIC_APP_NAME=${NEXT_PUBLIC_APP_NAME} \
+    NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL} \
+    NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL}
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-ENV NEXT_TELEMETRY_DISABLED 1
-ENV NODE_ENV production
+RUN npm run build && npm prune --omit=dev
 
-RUN npm run build
-
-# Stage 3: Runner
 FROM node:20-alpine AS runner
 WORKDIR /app
 
-ENV NODE_ENV production
-ENV NEXT_TELEMETRY_DISABLED 1
+ENV NODE_ENV=production \
+    HUSKY=0 \
+    NEXT_TELEMETRY_DISABLED=1 \
+    PORT=3000
 
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
-
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/package-lock.json ./package-lock.json
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-
-USER nextjs
+COPY --from=builder /app/next.config.ts ./next.config.ts
 
 EXPOSE 3000
 
-ENV PORT 3000
-ENV HOSTNAME "0.0.0.0"
-
-CMD ["node", "server.js"]
+CMD ["npm", "run", "start", "--", "--hostname", "0.0.0.0", "--port", "3000"]

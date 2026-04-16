@@ -124,9 +124,9 @@ class Settings(BaseSettings):
         enable_decoding=False,
     )
 
-    PROJECT_NAME: str = "FastAPI Template"
-    APP_ENV: str = "development"
-    APP_INSTANCE_NAME: str = "fastapi-template"
+    PROJECT_NAME: str = "Slot Booking"
+    APP_ENV: str = "local"
+    APP_INSTANCE_NAME: str = "slot-booking"
     APP_REGION: str = "local"
     API_V1_STR: str = "/api/v1"
     SECRET_KEY: str = "supersecretkey"

@@ -1,21 +1,25 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
-  --surface: #ffffff;
-  --surface-muted: #f8fafc;
-  --surface-subtle: #f1f5f9;
-  --border-color: #e2e8f0;
-  --text-primary: #0f172a;
-  --text-secondary: #334155;
-  --text-muted: #64748b;
-  --accent: #2563eb;
-  --accent-foreground: #f8fafc;
-  --accent-soft: #dbeafe;
-  --success-soft: #dcfce7;
-  --warning-soft: #fef3c7;
-  --danger-soft: #fee2e2;
+  --background: #f4ecdf;
+  --foreground: #1f1a15;
+  --surface: #fcfaf5;
+  --surface-muted: #f6efe5;
+  --surface-subtle: #efe4d3;
+  --border-color: #decfbc;
+  --text-primary: #1f1a15;
+  --text-secondary: #51473d;
+  --text-muted: #7a6b5c;
+  --accent: #146c6b;
+  --accent-foreground: #f4fbfb;
+  --accent-soft: #d7eceb;
+  --success-soft: #d8f2e7;
+  --warning-soft: #f6e7cb;
+  --danger-soft: #f8dbd6;
+  --brand-night: #0f1424;
+  --brand-night-soft: #18203a;
+  --brand-copper: #c58a49;
+  --brand-mist: #fff6ea;
 }
 
 @theme inline {
@@ -25,16 +29,53 @@
   --font-mono: var(--font-geist-mono);
 }
 
+html,
 body {
-  background: var(--background);
+  background:
+    radial-gradient(circle at top left, rgba(197, 138, 73, 0.12), transparent 28%),
+    radial-gradient(circle at top right, rgba(20, 108, 107, 0.08), transparent 24%),
+    var(--background);
   color: var(--foreground);
+}
+
+body {
   font-family: var(--font-geist-sans), sans-serif;
 }
 
-html,
-body {
-  background: var(--background);
-  color: var(--foreground);
+.font-display {
+  font-family: var(--font-brand-display), serif;
+  letter-spacing: -0.04em;
+}
+
+.brand-shell {
+  background:
+    radial-gradient(circle at 12% 14%, rgba(197, 138, 73, 0.24), transparent 30%),
+    radial-gradient(circle at 86% 2%, rgba(20, 108, 107, 0.22), transparent 28%),
+    linear-gradient(180deg, var(--brand-night) 0%, var(--brand-night-soft) 54%, #101625 100%);
+}
+
+.brand-panel {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.05));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(20px);
+}
+
+.schedule-grid {
+  background-image:
+    linear-gradient(rgba(15, 20, 36, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 20, 36, 0.06) 1px, transparent 1px);
+  background-size: 34px 34px;
+}
+
+.night-grid {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+  background-size: 36px 36px;
+}
+
+.brand-divider {
+  background: linear-gradient(90deg, transparent, rgba(197, 138, 73, 0.46), transparent);
 }
 
 .bg-white {
@@ -164,7 +205,7 @@ body {
 
 .shadow-sm,
 .shadow-lg {
-  box-shadow: 0 10px 30px color-mix(in srgb, var(--background) 68%, black) !important;
+  box-shadow: 0 16px 40px color-mix(in srgb, var(--background) 64%, black) !important;
 }
 
 select,

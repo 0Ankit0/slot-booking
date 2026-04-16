@@ -54,7 +54,7 @@ def test_public_general_settings_payload_uses_safe_allowlist() -> None:
         [
             GeneralSetting(
                 key="PROJECT_NAME",
-                env_value="FastAPI Template",
+                env_value="Slot Booking",
                 db_value="Runtime Project",
                 use_db_value=True,
             )

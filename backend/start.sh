@@ -17,7 +17,7 @@ DEBUG=$(grep "^DEBUG=" .env | cut -d'=' -f2)
 PROJECT_NAME=$(grep "^PROJECT_NAME=" .env | cut -d'=' -f2-)
 
 if [ -z "$PROJECT_NAME" ]; then
-    PROJECT_NAME="Project Template"
+    PROJECT_NAME="Slot Booking"
 fi
 
 echo -e "${BLUE}Starting ${PROJECT_NAME} with Celery${NC}"

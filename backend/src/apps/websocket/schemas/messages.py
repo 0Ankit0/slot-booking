@@ -207,15 +207,7 @@ class WSStatsResponse(BaseModel):
     rooms: dict[str, int]   # room_name → active member count
     users_online: list[int]  # list of user_ids currently connected
 
-    @field_serializer("users_online")
-    def serialize_users_online(self, value: list[int]) -> list[str]:
-        return [encode_id(user_id) for user_id in value]
-
 
 class WSOnlineStatusResponse(BaseModel):
     user_id: int
     online: bool
-
-    @field_serializer("user_id")
-    def serialize_user_id(self, value: int) -> str:
-        return encode_id(value)

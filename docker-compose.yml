@@ -1,14 +1,19 @@
 services:
   db:
     image: postgres:16-alpine
-    environment:
-      POSTGRES_DB: template
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+    env_file:
+      - ./backend/.env
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
@@ -16,68 +21,99 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
 
   backend:
     build:
       context: ./backend
+    env_file:
+      - ./backend/.env
     environment:
+      APP_ENV: compose
       DEBUG: "False"
       TESTING: "False"
       POSTGRES_SERVER: db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: template
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db/template
-      SYNC_DATABASE_URL: postgresql://postgres:postgres@db/template
-      REDIS_URL: redis://redis:6379/0
-      CELERY_BROKER_URL: redis://redis:6379/0
-      CELERY_RESULT_BACKEND: redis://redis:6379/0
-      BACKEND_CORS_ORIGINS: http://localhost:3000
+      REDIS_HOST: redis
+      BACKEND_CORS_ORIGINS: http://localhost:3000,http://frontend.localhost:3000
+      TRUSTED_HOSTS: localhost,127.0.0.1,backend.localhost,backend,frontend,test,testserver
+      PROXY_TRUSTED_HOSTS: "*"
+      FORWARDED_ALLOW_IPS: "*"
       SERVER_HOST: http://localhost:8000
       FRONTEND_URL: http://localhost:3000
+      WS_ALLOWED_ORIGINS: http://localhost:3000,http://frontend.localhost:3000
     command: >
-      sh -c "uv run alembic upgrade head &&
-             uv run uvicorn src.main:app --host 0.0.0.0 --port 8000"
+      sh -ec "uv run alembic upgrade head &&
+              uv run uvicorn src.main:app --host 0.0.0.0 --port 8000"
     ports:
       - "8000:8000"
+    volumes:
+      - backend_media:/app/media
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import json, urllib.request; json.load(urllib.request.urlopen('http://127.0.0.1:8000/api/v1/system/health/', timeout=5))\"",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
 
   worker:
     build:
       context: ./backend
+    env_file:
+      - ./backend/.env
     environment:
+      APP_ENV: compose
       DEBUG: "False"
       TESTING: "False"
       POSTGRES_SERVER: db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: template
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db/template
-      SYNC_DATABASE_URL: postgresql://postgres:postgres@db/template
-      REDIS_URL: redis://redis:6379/0
-      CELERY_BROKER_URL: redis://redis:6379/0
-      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      REDIS_HOST: redis
     command: uv run celery -A src.apps.core.celery_app worker --loglevel=info
     depends_on:
-      - backend
-      - redis
+      backend:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
 
   frontend:
-    image: node:20-alpine
-    working_dir: /app
-    volumes:
-      - ./frontend:/app
-    environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
-      NEXT_PUBLIC_ANALYTICS_ENABLED: "false"
-    command: sh -c "npm ci && npm run dev -- --hostname 0.0.0.0"
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_APP_NAME: Slot Booking
+        NEXT_PUBLIC_API_URL: http://backend.localhost:8000/api/v1
+        NEXT_PUBLIC_WS_URL: ws://backend.localhost:8000
+    env_file:
+      - ./frontend/.env.local
     ports:
       - "3000:3000"
+    extra_hosts:
+      - "backend.localhost:host-gateway"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000 >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
 
 volumes:
   postgres_data:
   redis_data:
+  backend_media:

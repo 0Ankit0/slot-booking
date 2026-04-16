@@ -54,6 +54,7 @@ class ResourceCreate(BaseModel):
     timezone: str = Field(default="UTC", max_length=80)
     base_price_minor: int = Field(ge=0)
     currency: str = Field(default="USD", min_length=3, max_length=3)
+    max_group_size: int = Field(default=1, ge=1, le=500)
 
 
 class ResourceRead(BaseModel):
@@ -68,6 +69,7 @@ class ResourceRead(BaseModel):
     timezone: str
     base_price_minor: int
     currency: str
+    max_group_size: int
     is_active: bool
 
     @field_serializer("id", "provider_id", "tenant_id")
@@ -82,6 +84,7 @@ class ResourceUpdate(BaseModel):
     timezone: str | None = Field(default=None, max_length=80)
     base_price_minor: int | None = Field(default=None, ge=0)
     currency: str | None = Field(default=None, min_length=3, max_length=3)
+    max_group_size: int | None = Field(default=None, ge=1, le=500)
     is_active: bool | None = None
 
 

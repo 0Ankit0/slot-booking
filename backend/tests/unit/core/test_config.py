@@ -8,7 +8,7 @@ class TestSettings:
     
     def test_project_name(self):
         """Test project name is set."""
-        assert settings.PROJECT_NAME == "FastAPI Template"
+        assert settings.PROJECT_NAME == "Slot Booking"
     
     def test_api_version(self):
         """Test API version prefix."""
@@ -58,7 +58,7 @@ class TestSettings:
 
     def test_operational_settings(self):
         """Test new operational defaults are configured."""
-        assert settings.APP_ENV in {"development", "staging", "production", "test"}
+        assert settings.APP_ENV in {"local", "development", "staging", "production", "test"}
         assert settings.COOKIE_SAMESITE in {"lax", "strict", "none"}
         assert settings.STORAGE_BACKEND in {"local", "s3"}
         assert settings.DB_POOL_SIZE >= 1

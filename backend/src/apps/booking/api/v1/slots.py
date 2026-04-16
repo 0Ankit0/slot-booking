@@ -17,7 +17,6 @@ from src.apps.iam.models.user import User
 from src.apps.analytics.dependencies import get_analytics
 from src.apps.analytics.events import BookingEvents
 from src.apps.analytics.service import AnalyticsService
-from src.apps.booking.services.notification_service import notify_booking_cancelled
 
 router = APIRouter(prefix="/slots", tags=["slots"])
 

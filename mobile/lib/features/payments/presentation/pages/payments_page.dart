@@ -61,7 +61,7 @@ class _PaymentsPageState extends ConsumerState<PaymentsPage> {
         ? (nprAmount * 100).round()
         : nprAmount.round();
 
-    final returnUrl = 'http://localhost:3000/payment-callback?provider=${_selectedProvider!.name}';
+    const returnUrl = 'http://localhost:3000/payment-callback';
 
     setState(() => _initiating = true);
 
@@ -118,8 +118,10 @@ class _PaymentsPageState extends ConsumerState<PaymentsPage> {
             provider: response.provider,
             paymentUrl: response.paymentUrl,
             esewaFormAction: response.extra?['form_action'] as String?,
-            esewaFormFields:
-                response.extra?['form_fields'] as Map<String, dynamic>?,
+            esewaFormFields: response.extra?['form_fields'] is Map
+                ? Map<String, dynamic>.from(
+                    response.extra?['form_fields'] as Map)
+                : null,
           ),
         ),
       ),
@@ -152,8 +154,9 @@ class _PaymentsPageState extends ConsumerState<PaymentsPage> {
       if (response.provider == PaymentProvider.esewa) {
         final formAction = response.extra?['form_action'] as String? ??
             'https://rc-epay.esewa.com.np/api/epay/main/v2/form';
-        final formFields =
-            response.extra?['form_fields'] as Map<String, dynamic>? ?? {};
+        final formFields = response.extra?['form_fields'] is Map
+            ? Map<String, dynamic>.from(response.extra?['form_fields'] as Map)
+            : <String, dynamic>{};
         await submitEsewaFormWeb(formAction, formFields);
       } else {
         // Khalti and others: redirect to payment URL
@@ -184,8 +187,8 @@ class _PaymentsPageState extends ConsumerState<PaymentsPage> {
   }
 
   void _showError(String msg) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg), backgroundColor: Colors.red));
   }
 
   @override
@@ -328,7 +331,8 @@ class _PaymentForm extends ConsumerWidget {
               // Amount
               TextFormField(
                 controller: amountCtrl,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
                 decoration: const InputDecoration(
                   labelText: 'Amount (NPR)',
                   hintText: 'e.g. 100',
@@ -534,8 +538,7 @@ class _EmptyTransactions extends StatelessWidget {
           children: [
             Icon(Icons.receipt_long_outlined, size: 48, color: Colors.grey),
             SizedBox(height: 12),
-            Text('No transactions yet',
-                style: TextStyle(color: Colors.grey)),
+            Text('No transactions yet', style: TextStyle(color: Colors.grey)),
           ],
         ),
       ),
@@ -571,8 +574,8 @@ class _CredentialHint extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title,
-              style: const TextStyle(
-                  fontWeight: FontWeight.bold, fontSize: 12)),
+              style:
+                  const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
           const SizedBox(height: 2),
           ...lines.map((l) => Text(l, style: const TextStyle(fontSize: 11))),
         ],

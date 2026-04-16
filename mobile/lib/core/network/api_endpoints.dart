@@ -43,6 +43,16 @@ class ApiEndpoints {
   static String revokeToken(String id) => '/tokens/revoke/$id';
   static const String revokeAll = '/tokens/revoke-all';
 
+  // Marketplace providers/resources/slots
+  static const String marketplaceProviders = '/providers/';
+  static String marketplaceProviderDetail(String providerId) =>
+      '/providers/$providerId';
+  static const String resources = '/resources/';
+  static String resourceDetail(String resourceId) => '/resources/$resourceId';
+  static const String slots = '/slots/';
+  static String holdSlot(String slotId) => '/slots/$slotId/hold';
+  static String releaseSlot(String slotId) => '/slots/$slotId/release';
+
   // Payments
   static const String payments = '/payments/';
   static const String paymentProviders = '/payments/providers/';
@@ -51,5 +61,8 @@ class ApiEndpoints {
 
   // Bookings
   static const String bookings = '/bookings/';
-  static String cancelBooking(String bookingId) => '/bookings/$bookingId/cancel';
+  static const String bookingQuote = '/bookings/quote';
+  static String bookingDetail(String bookingId) => '/bookings/$bookingId';
+  static String cancelBooking(String bookingId) =>
+      '/bookings/$bookingId/cancel';
 }
