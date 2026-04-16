@@ -43,3 +43,12 @@ class UserEvents:
     PROFILE_UPDATED = "profile_updated"
     AVATAR_UPLOADED = "avatar_uploaded"
     TOKEN_REVOKED = "token_revoked"
+
+
+class BookingEvents:
+    BOOKING_CREATED = "booking_created"
+    BOOKING_CANCELLED = "booking_cancelled"
+    SLOT_HELD = "slot_held"
+    SLOT_RELEASED = "slot_released"
+    WAITLIST_JOINED = "waitlist_joined"
+    DISPUTE_OPENED = "dispute_opened"

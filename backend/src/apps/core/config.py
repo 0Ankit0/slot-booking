@@ -65,6 +65,8 @@ PUBLIC_GENERAL_SETTING_KEYS = frozenset(
         "FEATURE_ANALYTICS",
         "FEATURE_SOCIAL_AUTH",
         "FEATURE_MAPS",
+        "FEATURE_BOOKING_RECURRING",
+        "FEATURE_BOOKING_GROUP",
         "EMAIL_ENABLED",
         "EMAIL_PROVIDER",
         "PUSH_ENABLED",
@@ -171,6 +173,8 @@ class Settings(BaseSettings):
     FEATURE_ANALYTICS: bool = True
     FEATURE_SOCIAL_AUTH: bool = True
     FEATURE_MAPS: bool = False
+    FEATURE_BOOKING_RECURRING: bool = False
+    FEATURE_BOOKING_GROUP: bool = False
 
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
@@ -328,6 +332,8 @@ class Settings(BaseSettings):
         "FEATURE_ANALYTICS",
         "FEATURE_SOCIAL_AUTH",
         "FEATURE_MAPS",
+        "FEATURE_BOOKING_RECURRING",
+        "FEATURE_BOOKING_GROUP",
         "EMAIL_ENABLED",
         "PUSH_ENABLED",
         "SMS_ENABLED",

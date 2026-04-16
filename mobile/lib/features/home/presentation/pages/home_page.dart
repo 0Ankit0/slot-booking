@@ -36,6 +36,14 @@ class HomeTab extends StatelessWidget {
             color: Colors.teal,
             onTap: () => context.go('/home/settings/tokens'),
           ),
+          const SizedBox(height: 8),
+          _QuickAccessCard(
+            icon: Icons.calendar_month,
+            title: 'Bookings',
+            subtitle: 'View and cancel your bookings',
+            color: Colors.orange,
+            onTap: () => context.go('/home/bookings'),
+          ),
         ],
       ),
     );

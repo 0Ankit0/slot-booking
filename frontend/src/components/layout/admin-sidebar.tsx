@@ -9,6 +9,7 @@ import {
   Users,
   Shield,
   ArrowLeft,
+  CalendarRange,
 } from 'lucide-react';
 import { OrgSwitcher } from './org-switcher';
 
@@ -17,6 +18,7 @@ const adminNavigation = [
   { name: 'Logs', href: '/admin/logs', icon: Radar },
   { name: 'Security Review', href: '/admin/security-review', icon: ShieldAlert },
   { name: 'Manage Users', href: '/admin/users', icon: Users },
+  { name: 'Booking Analytics', href: '/admin/bookings', icon: CalendarRange },
   { name: 'Roles & Permissions', href: '/admin/rbac', icon: Shield },
 ];
 

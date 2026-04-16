@@ -16,6 +16,7 @@ from src.apps.core.middleware import RequestContextMiddleware, SecurityHeadersMi
 from src.apps.iam.api import api_router
 from src.apps.finance.api import finance_router
 from src.apps.multitenancy.api import multitenancy_router
+from src.apps.booking.api import booking_router
 from src.db.session import engine, init_db
 from src.apps.iam.casbin_enforcer import CasbinEnforcer
 from src.apps.websocket.api import ws_router
@@ -140,6 +141,7 @@ if settings.FEATURE_NOTIFICATIONS:
     app.include_router(notification_router, prefix=settings.API_V1_STR)
 if settings.FEATURE_ANALYTICS:
     app.include_router(analytics_router, prefix=settings.API_V1_STR)
+app.include_router(booking_router, prefix=settings.API_V1_STR)
 
 # Serve uploaded media files (avatars, etc.)
 if storage_uses_local_filesystem():

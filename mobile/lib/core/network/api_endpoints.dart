@@ -48,4 +48,8 @@ class ApiEndpoints {
   static const String paymentProviders = '/payments/providers/';
   static const String paymentInitiate = '/payments/initiate/';
   static const String paymentVerify = '/payments/verify/';
+
+  // Bookings
+  static const String bookings = '/bookings/';
+  static String cancelBooking(String bookingId) => '/bookings/$bookingId/cancel';
 }
