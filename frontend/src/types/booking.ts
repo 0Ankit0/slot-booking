@@ -106,6 +106,65 @@ export interface Slot {
   hold_expires_at?: string | null;
 }
 
+export interface AvailabilityRule {
+  id: string;
+  resource_id: string;
+  tenant_id: string;
+  day_of_week: number;
+  start_minute: number;
+  end_minute: number;
+  slot_duration_min: number;
+  valid_from?: string | null;
+  valid_to?: string | null;
+  is_active: boolean;
+}
+
+export interface AvailabilityRuleCreateInput {
+  tenant_id: string;
+  day_of_week: number;
+  start_minute: number;
+  end_minute: number;
+  slot_duration_min: number;
+  valid_from?: string;
+  valid_to?: string;
+  is_active: boolean;
+}
+
+export interface AvailabilityRuleUpdateInput {
+  day_of_week?: number;
+  start_minute?: number;
+  end_minute?: number;
+  slot_duration_min?: number;
+  valid_from?: string | null;
+  valid_to?: string | null;
+  is_active?: boolean;
+}
+
+export interface AvailabilityException {
+  id: string;
+  resource_id: string;
+  tenant_id: string;
+  starts_at: string;
+  ends_at: string;
+  is_available: boolean;
+  reason: string;
+}
+
+export interface AvailabilityExceptionCreateInput {
+  tenant_id: string;
+  starts_at: string;
+  ends_at: string;
+  is_available: boolean;
+  reason: string;
+}
+
+export interface AvailabilityExceptionUpdateInput {
+  starts_at?: string | null;
+  ends_at?: string | null;
+  is_available?: boolean;
+  reason?: string | null;
+}
+
 export interface BookingQuoteInput {
   tenant_id: string;
   resource_id: string;

@@ -185,15 +185,17 @@ export default function ResourceDetailPage() {
     setErrorMessage(null);
 
     try {
-      const booking = await createBooking.mutateAsync({
-        tenant_id: resource.tenant_id,
-        provider_id: resource.provider_id,
-        resource_id: resource.id,
-        slot_id: selectedSlot.id,
-        amount_minor: quoteQuery.data?.final_amount_minor ?? resource.base_price_minor,
-        currency: resource.currency,
-        notes: notes.trim() || undefined,
-      });
+        const booking = await createBooking.mutateAsync({
+          tenant_id: resource.tenant_id,
+          provider_id: resource.provider_id,
+          resource_id: resource.id,
+          slot_id: selectedSlot.id,
+          amount_minor: quoteQuery.data?.final_amount_minor ?? resource.base_price_minor,
+          currency: resource.currency,
+          promo_code: deferredPromoCode.trim() || undefined,
+          group_size: safeGroupSize,
+          notes: notes.trim() || undefined,
+        });
 
       if (mode === 'checkout' && selectedPaymentProvider) {
         const checkout = await checkoutBooking.mutateAsync({

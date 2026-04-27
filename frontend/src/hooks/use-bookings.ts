@@ -5,6 +5,12 @@ import { apiClient } from '@/lib/api-client';
 import { analytics } from '@/lib/analytics';
 import { BookingEvents } from '@/lib/analytics/events';
 import type {
+  AvailabilityException,
+  AvailabilityExceptionCreateInput,
+  AvailabilityExceptionUpdateInput,
+  AvailabilityRule,
+  AvailabilityRuleCreateInput,
+  AvailabilityRuleUpdateInput,
   Booking,
   BookingQuote,
   BookingQuoteInput,
@@ -26,6 +32,8 @@ export interface BookingCreatePayload {
   slot_id: string;
   amount_minor: number;
   currency: string;
+  promo_code?: string;
+  group_size?: number;
   notes?: string;
 }
 
@@ -234,6 +242,154 @@ export function useSlots(params: { resource_id: string; from_ts: string; to_ts: 
       return response.data;
     },
     enabled: Boolean(params.resource_id),
+  });
+}
+
+export function useAvailabilityRules(resourceId?: string) {
+  return useQuery({
+    queryKey: ['availability-rules', resourceId],
+    queryFn: async () => {
+      const response = await apiClient.get<AvailabilityRule[]>(`/availability/resources/${resourceId}/rules`);
+      return response.data;
+    },
+    enabled: Boolean(resourceId),
+  });
+}
+
+export function useCreateAvailabilityRule() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ resourceId: id, payload }: { resourceId: string; payload: AvailabilityRuleCreateInput }) => {
+      const response = await apiClient.post<AvailabilityRule>(`/availability/resources/${id}/rules`, payload);
+      return response.data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['availability-rules', variables.resourceId] });
+    },
+  });
+}
+
+export function useUpdateAvailabilityRule() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (variables: {
+      resourceId: string;
+      ruleId: string;
+      payload: AvailabilityRuleUpdateInput;
+    }) => {
+      const response = await apiClient.patch<AvailabilityRule>(`/availability/rules/${variables.ruleId}`, variables.payload);
+      return response.data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['availability-rules', variables.resourceId] });
+    },
+  });
+}
+
+export function useDeleteAvailabilityRule(resourceId?: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (ruleId: string) => {
+      await apiClient.delete(`/availability/rules/${ruleId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['availability-rules', resourceId] });
+    },
+  });
+}
+
+export function useAvailabilityExceptions(resourceId?: string) {
+  return useQuery({
+    queryKey: ['availability-exceptions', resourceId],
+    queryFn: async () => {
+      const response = await apiClient.get<AvailabilityException[]>(`/availability/resources/${resourceId}/exceptions`);
+      return response.data;
+    },
+    enabled: Boolean(resourceId),
+  });
+}
+
+export function useCreateAvailabilityException() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      resourceId: id,
+      payload,
+    }: {
+      resourceId: string;
+      payload: AvailabilityExceptionCreateInput;
+    }) => {
+      const response = await apiClient.post<AvailabilityException>(`/availability/resources/${id}/exceptions`, payload);
+      return response.data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['availability-exceptions', variables.resourceId] });
+    },
+  });
+}
+
+export function useUpdateAvailabilityException() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (variables: {
+      resourceId: string;
+      exceptionId: string;
+      payload: AvailabilityExceptionUpdateInput;
+    }) => {
+      const response = await apiClient.patch<AvailabilityException>(`/availability/exceptions/${variables.exceptionId}`, variables.payload);
+      return response.data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['availability-exceptions', variables.resourceId] });
+    },
+  });
+}
+
+export function useDeleteAvailabilityException(resourceId?: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (exceptionId: string) => {
+      await apiClient.delete(`/availability/exceptions/${exceptionId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['availability-exceptions', resourceId] });
+    },
+  });
+}
+
+export function useGenerateSlots() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      resourceId: id,
+      fromTs,
+      toTs,
+    }: {
+      resourceId: string;
+      fromTs: string;
+      toTs: string;
+    }) => {
+      const response = await apiClient.post<{ created: number }>('/slots/generate', null, {
+        params: {
+          resource_id: id,
+          from_ts: fromTs,
+          to_ts: toTs,
+        },
+      });
+      return response.data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['slots'] });
+      queryClient.invalidateQueries({ queryKey: ['availability-rules', variables.resourceId] });
+      queryClient.invalidateQueries({ queryKey: ['availability-exceptions', variables.resourceId] });
+    },
   });
 }
 

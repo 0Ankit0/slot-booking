@@ -3,14 +3,23 @@
 import axios from 'axios';
 import { useDeferredValue, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowUpRight, Pencil, Plus, Search, Store, Trash2 } from 'lucide-react';
+import { ArrowUpRight, CalendarRange, Pencil, Plus, Search, ShieldBan, Store, Trash2 } from 'lucide-react';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Button } from '@/components/ui/button';
 import {
+  useAvailabilityExceptions,
+  useAvailabilityRules,
+  useCreateAvailabilityException,
+  useCreateAvailabilityRule,
   useCreateResource,
   useDeleteResource,
+  useDeleteAvailabilityException,
+  useDeleteAvailabilityRule,
+  useGenerateSlots,
   useProviders,
   useResources,
+  useUpdateAvailabilityException,
+  useUpdateAvailabilityRule,
   useUpdateResource,
 } from '@/hooks/use-bookings';
 import {
@@ -21,7 +30,7 @@ import {
   resourceMatchesQuery,
 } from '@/lib/marketplace';
 import { useAuthStore } from '@/store/auth-store';
-import type { Resource } from '@/types/booking';
+import type { AvailabilityException, AvailabilityRule, Resource } from '@/types/booking';
 
 function getErrorMessage(error: unknown, fallback: string) {
   if (axios.isAxiosError(error)) {
@@ -48,6 +57,53 @@ type ResourceFormState = {
   is_active: boolean;
 };
 
+type RuleFormState = {
+  day_of_week: string;
+  start_time: string;
+  end_time: string;
+  slot_duration_min: string;
+  is_active: boolean;
+};
+
+type ExceptionFormState = {
+  starts_at: string;
+  ends_at: string;
+  reason: string;
+  is_available: boolean;
+};
+
+const WEEKDAY_OPTIONS = [
+  { value: '0', label: 'Monday' },
+  { value: '1', label: 'Tuesday' },
+  { value: '2', label: 'Wednesday' },
+  { value: '3', label: 'Thursday' },
+  { value: '4', label: 'Friday' },
+  { value: '5', label: 'Saturday' },
+  { value: '6', label: 'Sunday' },
+] as const;
+
+function toDateInputValue(date: Date) {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 10);
+}
+
+function toDateTimeLocalValue(date: Date) {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 16);
+}
+
+function minutesToTime(minutes: number) {
+  const hour = String(Math.floor(minutes / 60)).padStart(2, '0');
+  const minute = String(minutes % 60).padStart(2, '0');
+  return `${hour}:${minute}`;
+}
+
+function timeToMinutes(value: string) {
+  const [hour, minute] = value.split(':').map((segment) => Number(segment));
+  if (Number.isNaN(hour) || Number.isNaN(minute)) return 0;
+  return hour * 60 + minute;
+}
+
 function buildFormState(resource?: Resource | null): ResourceFormState {
   return {
     provider_id: resource?.provider_id ?? '',
@@ -62,6 +118,28 @@ function buildFormState(resource?: Resource | null): ResourceFormState {
   };
 }
 
+function buildRuleFormState(rule?: AvailabilityRule | null): RuleFormState {
+  return {
+    day_of_week: String(rule?.day_of_week ?? 0),
+    start_time: minutesToTime(rule?.start_minute ?? 9 * 60),
+    end_time: minutesToTime(rule?.end_minute ?? 17 * 60),
+    slot_duration_min: String(rule?.slot_duration_min ?? 60),
+    is_active: rule?.is_active ?? true,
+  };
+}
+
+function buildExceptionFormState(exception?: AvailabilityException | null): ExceptionFormState {
+  const now = new Date();
+  const later = new Date(now.getTime() + 60 * 60 * 1000);
+
+  return {
+    starts_at: exception?.starts_at ? toDateTimeLocalValue(new Date(exception.starts_at)) : toDateTimeLocalValue(now),
+    ends_at: exception?.ends_at ? toDateTimeLocalValue(new Date(exception.ends_at)) : toDateTimeLocalValue(later),
+    reason: exception?.reason ?? '',
+    is_available: exception?.is_available ?? false,
+  };
+}
+
 export default function AdminResourcesPage() {
   const activeTenant = useAuthStore((state) => state.tenant);
   const [search, setSearch] = useState('');
@@ -72,6 +150,19 @@ export default function AdminResourcesPage() {
   const [resourceToDelete, setResourceToDelete] = useState<Resource | null>(null);
   const [form, setForm] = useState<ResourceFormState>(() => buildFormState());
   const [formError, setFormError] = useState<string | null>(null);
+  const [ruleForm, setRuleForm] = useState<RuleFormState>(() => buildRuleFormState());
+  const [exceptionForm, setExceptionForm] = useState<ExceptionFormState>(() => buildExceptionFormState());
+  const [slotWindow, setSlotWindow] = useState(() => {
+    const today = new Date();
+    const inThirtyDays = new Date(today);
+    inThirtyDays.setDate(inThirtyDays.getDate() + 30);
+    return {
+      from_date: toDateInputValue(today),
+      to_date: toDateInputValue(inThirtyDays),
+    };
+  });
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const [scheduleMessage, setScheduleMessage] = useState<string | null>(null);
 
   const deferredSearch = useDeferredValue(search);
 
@@ -114,13 +205,28 @@ export default function AdminResourcesPage() {
   const createResource = useCreateResource();
   const updateResource = useUpdateResource();
   const deleteResource = useDeleteResource();
+  const availabilityRulesQuery = useAvailabilityRules(editingResource?.id);
+  const availabilityExceptionsQuery = useAvailabilityExceptions(editingResource?.id);
+  const createAvailabilityRule = useCreateAvailabilityRule();
+  const updateAvailabilityRule = useUpdateAvailabilityRule();
+  const deleteAvailabilityRule = useDeleteAvailabilityRule(editingResource?.id);
+  const createAvailabilityException = useCreateAvailabilityException();
+  const updateAvailabilityException = useUpdateAvailabilityException();
+  const deleteAvailabilityException = useDeleteAvailabilityException(editingResource?.id);
+  const generateSlots = useGenerateSlots();
 
   const selectedProvider = form.provider_id ? providerMap.get(form.provider_id) : undefined;
+  const availabilityRules = availabilityRulesQuery.data ?? [];
+  const availabilityExceptions = availabilityExceptionsQuery.data ?? [];
 
   const resetComposer = () => {
     setEditingResource(null);
     setForm(buildFormState());
     setFormError(null);
+    setRuleForm(buildRuleFormState());
+    setExceptionForm(buildExceptionFormState());
+    setScheduleError(null);
+    setScheduleMessage(null);
   };
 
   const submitDisabled =
@@ -170,8 +276,10 @@ export default function AdminResourcesPage() {
         setEditingResource(updated);
         setForm(buildFormState(updated));
       } else {
-        await createResource.mutateAsync(createPayload);
-        resetComposer();
+        const created = await createResource.mutateAsync(createPayload);
+        setEditingResource(created);
+        setForm(buildFormState(created));
+        setScheduleMessage('Resource created. Add weekly availability and publish slots next.');
       }
     } catch (error) {
       setFormError(
@@ -197,6 +305,118 @@ export default function AdminResourcesPage() {
     } catch (error) {
       setFormError(getErrorMessage(error, 'Could not delete this resource.'));
       setResourceToDelete(null);
+    }
+  };
+
+  const handleCreateAvailabilityRule = async () => {
+    if (!editingResource) return;
+    setScheduleError(null);
+    setScheduleMessage(null);
+
+    try {
+      await createAvailabilityRule.mutateAsync({
+        resourceId: editingResource.id,
+        payload: {
+          tenant_id: editingResource.tenant_id,
+          day_of_week: Number(ruleForm.day_of_week),
+          start_minute: timeToMinutes(ruleForm.start_time),
+          end_minute: timeToMinutes(ruleForm.end_time),
+          slot_duration_min: Number(ruleForm.slot_duration_min),
+          is_active: ruleForm.is_active,
+        },
+      });
+      setRuleForm(buildRuleFormState());
+      setScheduleMessage('Weekly availability rule added.');
+    } catch (error) {
+      setScheduleError(getErrorMessage(error, 'Could not save this availability rule.'));
+    }
+  };
+
+  const handleToggleRule = async (rule: AvailabilityRule) => {
+    setScheduleError(null);
+    setScheduleMessage(null);
+    try {
+      await updateAvailabilityRule.mutateAsync({
+        resourceId: rule.resource_id,
+        ruleId: rule.id,
+        payload: { is_active: !rule.is_active },
+      });
+    } catch (error) {
+      setScheduleError(getErrorMessage(error, 'Could not update this availability rule.'));
+    }
+  };
+
+  const handleDeleteRule = async (ruleId: string) => {
+    setScheduleError(null);
+    setScheduleMessage(null);
+    try {
+      await deleteAvailabilityRule.mutateAsync(ruleId);
+    } catch (error) {
+      setScheduleError(getErrorMessage(error, 'Could not delete this availability rule.'));
+    }
+  };
+
+  const handleCreateAvailabilityException = async () => {
+    if (!editingResource) return;
+    setScheduleError(null);
+    setScheduleMessage(null);
+
+    try {
+      await createAvailabilityException.mutateAsync({
+        resourceId: editingResource.id,
+        payload: {
+          tenant_id: editingResource.tenant_id,
+          starts_at: new Date(exceptionForm.starts_at).toISOString(),
+          ends_at: new Date(exceptionForm.ends_at).toISOString(),
+          reason: exceptionForm.reason.trim(),
+          is_available: exceptionForm.is_available,
+        },
+      });
+      setExceptionForm(buildExceptionFormState());
+      setScheduleMessage(exceptionForm.is_available ? 'Availability override added.' : 'Blocking exception added.');
+    } catch (error) {
+      setScheduleError(getErrorMessage(error, 'Could not save this availability exception.'));
+    }
+  };
+
+  const handleToggleException = async (exception: AvailabilityException) => {
+    setScheduleError(null);
+    setScheduleMessage(null);
+    try {
+      await updateAvailabilityException.mutateAsync({
+        resourceId: exception.resource_id,
+        exceptionId: exception.id,
+        payload: { is_available: !exception.is_available },
+      });
+    } catch (error) {
+      setScheduleError(getErrorMessage(error, 'Could not update this availability exception.'));
+    }
+  };
+
+  const handleDeleteException = async (exceptionId: string) => {
+    setScheduleError(null);
+    setScheduleMessage(null);
+    try {
+      await deleteAvailabilityException.mutateAsync(exceptionId);
+    } catch (error) {
+      setScheduleError(getErrorMessage(error, 'Could not delete this availability exception.'));
+    }
+  };
+
+  const handleGenerateSlots = async () => {
+    if (!editingResource) return;
+    setScheduleError(null);
+    setScheduleMessage(null);
+
+    try {
+      const response = await generateSlots.mutateAsync({
+        resourceId: editingResource.id,
+        fromTs: new Date(`${slotWindow.from_date}T00:00:00`).toISOString(),
+        toTs: new Date(`${slotWindow.to_date}T23:59:59`).toISOString(),
+      });
+      setScheduleMessage(`${response.created} slots generated for ${editingResource.name}.`);
+    } catch (error) {
+      setScheduleError(getErrorMessage(error, 'Could not generate slots for this resource.'));
     }
   };
 
@@ -519,9 +739,282 @@ export default function AdminResourcesPage() {
                   <Button variant="outline" className="border-white/20 text-white hover:bg-white/10" onClick={resetComposer}>
                     Cancel editing
                   </Button>
-                ) : null}
+                  ) : null}
               </div>
             </div>
+
+            {editingResource ? (
+              <div className="space-y-5 rounded-[28px] border border-white/10 bg-white/6 p-5 backdrop-blur-sm">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/60">Availability operations</p>
+                  <h3 className="mt-2 font-display text-2xl text-white">Publish recurring schedules and slot windows</h3>
+                  <p className="mt-2 text-sm leading-6 text-white/68">
+                    Weekly rules create the recurring shape. Exceptions block or reopen specific windows. Slot generation materialises inventory for booking.
+                  </p>
+                </div>
+
+                {scheduleError ? (
+                  <div className="rounded-2xl border border-red-400/40 bg-red-400/12 px-4 py-3 text-sm text-red-100">
+                    {scheduleError}
+                  </div>
+                ) : null}
+                {scheduleMessage ? (
+                  <div className="rounded-2xl border border-emerald-400/30 bg-emerald-400/12 px-4 py-3 text-sm text-emerald-100">
+                    {scheduleMessage}
+                  </div>
+                ) : null}
+
+                <div className="grid gap-4 rounded-[24px] border border-white/10 bg-black/16 p-4 md:grid-cols-3">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/56">Active rules</p>
+                    <p className="mt-2 text-2xl font-semibold text-white">{availabilityRules.filter((rule) => rule.is_active).length}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/56">Exceptions</p>
+                    <p className="mt-2 text-2xl font-semibold text-white">{availabilityExceptions.length}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/56">Resource timezone</p>
+                    <p className="mt-2 text-lg font-semibold text-white">{editingResource.timezone}</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4 rounded-[24px] border border-white/10 bg-black/16 p-4">
+                  <div className="flex items-center gap-2">
+                    <CalendarRange className="h-4 w-4 text-[var(--brand-copper)]" />
+                    <p className="text-sm font-semibold text-white">Weekly availability rule</p>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                    <label className="space-y-2 text-sm">
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/56">Day</span>
+                      <select
+                        value={ruleForm.day_of_week}
+                        onChange={(event) => setRuleForm((current) => ({ ...current, day_of_week: event.target.value }))}
+                        className="w-full rounded-2xl border border-white/12 bg-white/8 px-4 py-3 text-white outline-none transition focus:border-[var(--brand-copper)]"
+                      >
+                        {WEEKDAY_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value} className="text-gray-900">
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="space-y-2 text-sm">
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/56">Starts</span>
+                      <input
+                        type="time"
+                        value={ruleForm.start_time}
+                        onChange={(event) => setRuleForm((current) => ({ ...current, start_time: event.target.value }))}
+                        className="w-full rounded-2xl border border-white/12 bg-white/8 px-4 py-3 text-white outline-none transition focus:border-[var(--brand-copper)]"
+                      />
+                    </label>
+                    <label className="space-y-2 text-sm">
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/56">Ends</span>
+                      <input
+                        type="time"
+                        value={ruleForm.end_time}
+                        onChange={(event) => setRuleForm((current) => ({ ...current, end_time: event.target.value }))}
+                        className="w-full rounded-2xl border border-white/12 bg-white/8 px-4 py-3 text-white outline-none transition focus:border-[var(--brand-copper)]"
+                      />
+                    </label>
+                    <label className="space-y-2 text-sm">
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/56">Slot minutes</span>
+                      <input
+                        type="number"
+                        min="5"
+                        step="5"
+                        value={ruleForm.slot_duration_min}
+                        onChange={(event) => setRuleForm((current) => ({ ...current, slot_duration_min: event.target.value }))}
+                        className="w-full rounded-2xl border border-white/12 bg-white/8 px-4 py-3 text-white outline-none transition focus:border-[var(--brand-copper)]"
+                      />
+                    </label>
+                  </div>
+
+                  <label className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/6 px-4 py-3 text-sm">
+                    <div>
+                      <p className="font-medium text-white">Rule active</p>
+                      <p className="mt-1 text-xs text-white/56">Inactive rules stay saved but stop generating slots.</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={ruleForm.is_active}
+                      onChange={(event) => setRuleForm((current) => ({ ...current, is_active: event.target.checked }))}
+                      className="h-4 w-4 rounded border-white/20"
+                    />
+                  </label>
+
+                  <Button
+                    onClick={handleCreateAvailabilityRule}
+                    isLoading={createAvailabilityRule.isPending}
+                    className="bg-[var(--brand-copper)] text-[var(--brand-night)] hover:bg-[rgba(229,196,160,0.95)]"
+                  >
+                    Save weekly rule
+                  </Button>
+
+                  <div className="space-y-3">
+                    {availabilityRulesQuery.isLoading ? (
+                      <div className="text-sm text-white/60">Loading saved rules…</div>
+                    ) : availabilityRules.length === 0 ? (
+                      <div className="rounded-2xl border border-dashed border-white/14 px-4 py-4 text-sm text-white/60">
+                        No weekly availability rules yet.
+                      </div>
+                    ) : (
+                      availabilityRules.map((rule) => (
+                        <div key={rule.id} className="rounded-2xl border border-white/10 bg-white/6 px-4 py-4">
+                          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                            <div>
+                              <p className="font-medium text-white">
+                                {WEEKDAY_OPTIONS.find((option) => option.value === String(rule.day_of_week))?.label} · {minutesToTime(rule.start_minute)} - {minutesToTime(rule.end_minute)}
+                              </p>
+                              <p className="mt-1 text-sm text-white/60">Slots every {rule.slot_duration_min} minutes</p>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              <Button variant="outline" className="border-white/20 text-white hover:bg-white/10" onClick={() => handleToggleRule(rule)}>
+                                {rule.is_active ? 'Disable' : 'Enable'}
+                              </Button>
+                              <Button variant="outline" className="border-red-300/30 text-red-100 hover:bg-red-400/10" onClick={() => handleDeleteRule(rule.id)}>
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-4 rounded-[24px] border border-white/10 bg-black/16 p-4">
+                  <div className="flex items-center gap-2">
+                    <ShieldBan className="h-4 w-4 text-[var(--brand-copper)]" />
+                    <p className="text-sm font-semibold text-white">Availability exceptions</p>
+                  </div>
+
+                  <div className="grid gap-4 xl:grid-cols-2">
+                    <label className="space-y-2 text-sm">
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/56">Starts at</span>
+                      <input
+                        type="datetime-local"
+                        value={exceptionForm.starts_at}
+                        onChange={(event) => setExceptionForm((current) => ({ ...current, starts_at: event.target.value }))}
+                        className="w-full rounded-2xl border border-white/12 bg-white/8 px-4 py-3 text-white outline-none transition focus:border-[var(--brand-copper)]"
+                      />
+                    </label>
+                    <label className="space-y-2 text-sm">
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/56">Ends at</span>
+                      <input
+                        type="datetime-local"
+                        value={exceptionForm.ends_at}
+                        onChange={(event) => setExceptionForm((current) => ({ ...current, ends_at: event.target.value }))}
+                        className="w-full rounded-2xl border border-white/12 bg-white/8 px-4 py-3 text-white outline-none transition focus:border-[var(--brand-copper)]"
+                      />
+                    </label>
+                  </div>
+
+                  <label className="space-y-2 text-sm">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/56">Reason</span>
+                    <input
+                      value={exceptionForm.reason}
+                      onChange={(event) => setExceptionForm((current) => ({ ...current, reason: event.target.value }))}
+                      placeholder="Maintenance, holiday, special opening, etc."
+                      className="w-full rounded-2xl border border-white/12 bg-white/8 px-4 py-3 text-white outline-none transition placeholder:text-white/34 focus:border-[var(--brand-copper)]"
+                    />
+                  </label>
+
+                  <label className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/6 px-4 py-3 text-sm">
+                    <div>
+                      <p className="font-medium text-white">Treat as available override</p>
+                      <p className="mt-1 text-xs text-white/56">Turn this on to reopen a special window instead of blocking it.</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={exceptionForm.is_available}
+                      onChange={(event) => setExceptionForm((current) => ({ ...current, is_available: event.target.checked }))}
+                      className="h-4 w-4 rounded border-white/20"
+                    />
+                  </label>
+
+                  <Button
+                    onClick={handleCreateAvailabilityException}
+                    isLoading={createAvailabilityException.isPending}
+                    className="bg-[var(--brand-copper)] text-[var(--brand-night)] hover:bg-[rgba(229,196,160,0.95)]"
+                  >
+                    Save exception
+                  </Button>
+
+                  <div className="space-y-3">
+                    {availabilityExceptionsQuery.isLoading ? (
+                      <div className="text-sm text-white/60">Loading saved exceptions…</div>
+                    ) : availabilityExceptions.length === 0 ? (
+                      <div className="rounded-2xl border border-dashed border-white/14 px-4 py-4 text-sm text-white/60">
+                        No exceptions defined yet.
+                      </div>
+                    ) : (
+                      availabilityExceptions.map((exception) => (
+                        <div key={exception.id} className="rounded-2xl border border-white/10 bg-white/6 px-4 py-4">
+                          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                            <div>
+                              <p className="font-medium text-white">
+                                {new Date(exception.starts_at).toLocaleString()} - {new Date(exception.ends_at).toLocaleString()}
+                              </p>
+                              <p className="mt-1 text-sm text-white/60">
+                                {exception.is_available ? 'Available override' : 'Blocked window'}{exception.reason ? ` · ${exception.reason}` : ''}
+                              </p>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              <Button variant="outline" className="border-white/20 text-white hover:bg-white/10" onClick={() => handleToggleException(exception)}>
+                                {exception.is_available ? 'Mark blocked' : 'Mark available'}
+                              </Button>
+                              <Button variant="outline" className="border-red-300/30 text-red-100 hover:bg-red-400/10" onClick={() => handleDeleteException(exception.id)}>
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-4 rounded-[24px] border border-white/10 bg-black/16 p-4">
+                  <div>
+                    <p className="text-sm font-semibold text-white">Generate bookable slots</p>
+                    <p className="mt-1 text-sm text-white/60">Publish a concrete slot horizon from the saved rules and exceptions.</p>
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <label className="space-y-2 text-sm">
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/56">From date</span>
+                      <input
+                        type="date"
+                        value={slotWindow.from_date}
+                        onChange={(event) => setSlotWindow((current) => ({ ...current, from_date: event.target.value }))}
+                        className="w-full rounded-2xl border border-white/12 bg-white/8 px-4 py-3 text-white outline-none transition focus:border-[var(--brand-copper)]"
+                      />
+                    </label>
+                    <label className="space-y-2 text-sm">
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/56">To date</span>
+                      <input
+                        type="date"
+                        value={slotWindow.to_date}
+                        onChange={(event) => setSlotWindow((current) => ({ ...current, to_date: event.target.value }))}
+                        className="w-full rounded-2xl border border-white/12 bg-white/8 px-4 py-3 text-white outline-none transition focus:border-[var(--brand-copper)]"
+                      />
+                    </label>
+                  </div>
+
+                  <Button
+                    onClick={handleGenerateSlots}
+                    isLoading={generateSlots.isPending}
+                    className="bg-[var(--brand-copper)] text-[var(--brand-night)] hover:bg-[rgba(229,196,160,0.95)]"
+                  >
+                    Generate slots
+                  </Button>
+                </div>
+              </div>
+            ) : null}
           </div>
         </aside>
       </div>
