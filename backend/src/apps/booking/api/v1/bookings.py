@@ -1,10 +1,12 @@
+from datetime import timedelta
+
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 from src.apps.core.config import settings
 from src.apps.iam.utils.hashid import encode_id
 
-from src.apps.booking.models import Booking, PromoCode
+from src.apps.booking.models import Booking, BookingStatus, PaymentStatus as BookingPaymentStatus, Slot
 from src.apps.booking.schemas import (
     BookingCreate,
     BookingCancelResponse,
@@ -19,7 +21,12 @@ from src.apps.booking.schemas import (
     GroupBookingResponse,
     decode_hashid_or_int,
 )
-from src.apps.booking.services.booking_service import create_or_get_idempotent_booking, reserve_slot_for_booking
+from src.apps.booking.services.booking_service import (
+    build_booking_quote,
+    create_or_get_idempotent_booking,
+    get_booking_by_idempotency_key,
+    validate_slot_booking_request,
+)
 from src.apps.booking.services.booking_service import cancel_booking as cancel_booking_service
 from src.apps.iam.api.deps import get_current_user, get_db
 from src.apps.iam.models.user import User
@@ -54,7 +61,7 @@ async def list_bookings(
     rows = result.scalars().all()
     has_more = len(rows) > limit
     items = rows[:limit]
-    next_cursor = str(items[-1].id) if has_more and items else None
+    next_cursor = encode_id(items[-1].id) if has_more and items else None
     return {"items": [BookingRead.model_validate(item) for item in items], "next_cursor": next_cursor}
 
 
@@ -72,18 +79,48 @@ async def create_booking(
     if tenant_header and decode_hashid_or_int(tenant_header) != tenant_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Tenant mismatch")
 
-    slot = await reserve_slot_for_booking(db=db, slot_id=decode_hashid_or_int(payload.slot_id))
+    existing = await get_booking_by_idempotency_key(
+        db=db,
+        idempotency_key=idempotency_key,
+        user_id=current_user.id,
+    )
+    if existing is not None:
+        return BookingRead.model_validate(existing)
+
+    slot_context = await validate_slot_booking_request(
+        db=db,
+        slot_id=decode_hashid_or_int(payload.slot_id),
+        resource_id=decode_hashid_or_int(payload.resource_id),
+        provider_id=decode_hashid_or_int(payload.provider_id),
+        tenant_id=tenant_id,
+        current_user_id=current_user.id,
+    )
+    quote = await build_booking_quote(
+        db=db,
+        tenant_id=tenant_id,
+        resource_id=slot_context.resource.id,
+        promo_code=payload.promo_code,
+        group_size=payload.group_size,
+    )
+    if payload.amount_minor != quote.final_amount_minor:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Quoted amount no longer matches current pricing",
+        )
+
     booking = Booking(
         tenant_id=tenant_id,
         provider_id=decode_hashid_or_int(payload.provider_id),
         resource_id=decode_hashid_or_int(payload.resource_id),
         user_id=current_user.id,
-        amount_minor=payload.amount_minor,
+        amount_minor=quote.final_amount_minor,
         currency=payload.currency,
+        promo_code=payload.promo_code,
+        promo_discount_minor=quote.promo_discount_minor,
         idempotency_key=idempotency_key,
         notes=f"{payload.notes}\nrequest_id={request_id}".strip(),
     )
-    booking = await create_or_get_idempotent_booking(db=db, booking=booking, slot=slot)
+    booking = await create_or_get_idempotent_booking(db=db, booking=booking, slot=slot_context.slot)
     await db.commit()
     await db.refresh(booking)
     await notify_booking_created(db, user_id=current_user.id, booking_id=booking.id)
@@ -96,28 +133,18 @@ async def quote_booking(
     payload: BookingQuoteRequest,
     db: AsyncSession = Depends(get_db),
 ) -> BookingQuoteResponse:
-    base_amount = payload.amount_minor
-    group_surcharge = max(payload.group_size - 1, 0) * 100
-
-    promo_discount = 0
-    if payload.promo_code:
-        promo_result = await db.execute(
-            select(PromoCode).where(
-                PromoCode.tenant_id == decode_hashid_or_int(payload.tenant_id),
-                PromoCode.code == payload.promo_code,
-                PromoCode.is_active,
-            )
-        )
-        promo = promo_result.scalars().first()
-        if promo:
-            promo_discount = int(base_amount * (promo.percentage_off / 100)) + promo.fixed_off_minor
-
-    final_amount = max(base_amount + group_surcharge - promo_discount, 0)
+    quote = await build_booking_quote(
+        db=db,
+        tenant_id=decode_hashid_or_int(payload.tenant_id),
+        resource_id=decode_hashid_or_int(payload.resource_id),
+        promo_code=payload.promo_code,
+        group_size=payload.group_size,
+    )
     return BookingQuoteResponse(
-        base_amount_minor=base_amount,
-        promo_discount_minor=promo_discount,
-        group_surcharge_minor=group_surcharge,
-        final_amount_minor=final_amount,
+        base_amount_minor=quote.base_amount_minor,
+        promo_discount_minor=quote.promo_discount_minor,
+        group_surcharge_minor=quote.group_surcharge_minor,
+        final_amount_minor=quote.final_amount_minor,
     )
 
 
@@ -131,19 +158,67 @@ async def create_recurring_bookings(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Recurring bookings are disabled')
 
     created_ids: list[str] = []
-    for i in range(payload.repeat_count):
-        booking = Booking(
-            tenant_id=decode_hashid_or_int(payload.tenant_id),
-            provider_id=decode_hashid_or_int(payload.provider_id),
-            resource_id=decode_hashid_or_int(payload.resource_id),
-            user_id=current_user.id,
-            amount_minor=payload.amount_minor,
-            currency=payload.currency,
-            idempotency_key=f'recurring:{current_user.id}:{payload.slot_id}:{i}',
-            notes=f'recurring interval days={payload.interval_days}',
+    tenant_id = decode_hashid_or_int(payload.tenant_id)
+    provider_id = decode_hashid_or_int(payload.provider_id)
+    resource_id = decode_hashid_or_int(payload.resource_id)
+    base_slot_id = decode_hashid_or_int(payload.slot_id)
+    base_context = await validate_slot_booking_request(
+        db=db,
+        slot_id=base_slot_id,
+        resource_id=resource_id,
+        provider_id=provider_id,
+        tenant_id=tenant_id,
+        current_user_id=current_user.id,
+    )
+    slot_duration = base_context.slot.ends_at - base_context.slot.starts_at
+    candidate_slots = [base_context.slot]
+
+    for index in range(1, payload.repeat_count):
+        target_start = base_context.slot.starts_at + timedelta(days=index * payload.interval_days)
+        target_end = target_start + slot_duration
+        matching_slot_result = await db.execute(
+            select(Slot).where(
+                Slot.resource_id == resource_id,
+                Slot.starts_at == target_start,
+                Slot.ends_at == target_end,
+            )
         )
-        db.add(booking)
-        await db.flush()
+        matching_slot = matching_slot_result.scalar_one_or_none()
+        if matching_slot is None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"RECURRING_CONFLICT_DETECTED: missing slot for {target_start.isoformat()}",
+            )
+        validated = await validate_slot_booking_request(
+            db=db,
+            slot_id=matching_slot.id,
+            resource_id=resource_id,
+            provider_id=provider_id,
+            tenant_id=tenant_id,
+            current_user_id=current_user.id,
+        )
+        candidate_slots.append(validated.slot)
+
+    for index, slot in enumerate(candidate_slots):
+        quote = await build_booking_quote(
+            db=db,
+            tenant_id=tenant_id,
+            resource_id=resource_id,
+        )
+        booking = await create_or_get_idempotent_booking(
+            db=db,
+            booking=Booking(
+                tenant_id=tenant_id,
+                provider_id=provider_id,
+                resource_id=resource_id,
+                user_id=current_user.id,
+                amount_minor=quote.final_amount_minor,
+                currency=payload.currency,
+                idempotency_key=f'recurring:{current_user.id}:{slot.id}:{index}',
+                notes=f'recurring interval days={payload.interval_days}',
+            ),
+            slot=slot,
+        )
         created_ids.append(encode_id(booking.id))
 
     await db.commit()
@@ -159,27 +234,45 @@ async def create_group_booking(
     if not settings.FEATURE_BOOKING_GROUP:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Group bookings are disabled')
 
-    surcharge = max(payload.participants - 1, 0) * 100
-    final_amount = payload.amount_minor + surcharge
-
-    booking = Booking(
-        tenant_id=decode_hashid_or_int(payload.tenant_id),
-        provider_id=decode_hashid_or_int(payload.provider_id),
-        resource_id=decode_hashid_or_int(payload.resource_id),
-        user_id=current_user.id,
-        amount_minor=final_amount,
-        currency=payload.currency,
-        idempotency_key=f'group:{current_user.id}:{payload.slot_id}:{payload.participants}',
-        notes=f'group booking participants={payload.participants}',
+    tenant_id = decode_hashid_or_int(payload.tenant_id)
+    provider_id = decode_hashid_or_int(payload.provider_id)
+    resource_id = decode_hashid_or_int(payload.resource_id)
+    slot_context = await validate_slot_booking_request(
+        db=db,
+        slot_id=decode_hashid_or_int(payload.slot_id),
+        resource_id=resource_id,
+        provider_id=provider_id,
+        tenant_id=tenant_id,
+        current_user_id=current_user.id,
     )
-    db.add(booking)
+    quote = await build_booking_quote(
+        db=db,
+        tenant_id=tenant_id,
+        resource_id=resource_id,
+        group_size=payload.participants,
+    )
+
+    booking = await create_or_get_idempotent_booking(
+        db=db,
+        booking=Booking(
+            tenant_id=tenant_id,
+            provider_id=provider_id,
+            resource_id=resource_id,
+            user_id=current_user.id,
+            amount_minor=quote.final_amount_minor,
+            currency=payload.currency,
+            idempotency_key=f'group:{current_user.id}:{payload.slot_id}:{payload.participants}',
+            notes=f'group booking participants={payload.participants}',
+        ),
+        slot=slot_context.slot,
+    )
     await db.commit()
     await db.refresh(booking)
 
     return GroupBookingResponse(
         booking_id=encode_id(booking.id),
         participants=payload.participants,
-        final_amount_minor=final_amount,
+        final_amount_minor=quote.final_amount_minor,
     )
 
 
@@ -194,6 +287,10 @@ async def checkout_booking(
     booking = await db.get(Booking, booking_db_id)
     if booking is None or booking.user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Booking not found')
+    if booking.status == BookingStatus.CANCELLED:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail='Booking has already been cancelled')
+    if booking.payment_status == BookingPaymentStatus.COMPLETED:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail='Booking is already paid')
 
     try:
         provider = PaymentProvider(payload.provider)

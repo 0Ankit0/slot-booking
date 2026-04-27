@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, Header, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -37,7 +37,18 @@ async def list_slots(
         )
         .order_by(Slot.starts_at.asc())
     )
-    return [SlotRead.model_validate(item) for item in result.scalars().all()]
+    now = datetime.utcnow()
+    items = result.scalars().all()
+    mutated = False
+    for item in items:
+        if item.status == SlotStatus.HELD and item.hold_expires_at and item.hold_expires_at <= now:
+            item.status = SlotStatus.OPEN
+            item.hold_expires_at = None
+            db.add(item)
+            mutated = True
+    if mutated:
+        await db.commit()
+    return [SlotRead.model_validate(item) for item in items]
 
 
 @router.post("/generate")
@@ -65,10 +76,20 @@ async def hold_slot(
     current_user: User = Depends(get_current_user),
     analytics: AnalyticsService = Depends(get_analytics),
 ) -> dict[str, str]:
-    result = await hold_slot_with_ttl(slot_id=decode_hashid_or_int(slot_id), holder_user_id=current_user.id)
+    slot_db_id = decode_hashid_or_int(slot_id)
+    slot = await db.get(Slot, slot_db_id)
+    if slot is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Slot not found")
+    if slot.status in {SlotStatus.BOOKED, SlotStatus.BLOCKED}:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Slot unavailable")
+
+    result = await hold_slot_with_ttl(slot_id=slot_db_id, holder_user_id=current_user.id)
     slot = await db.get(Slot, result.slot_id)
     if slot:
+        if slot.status in {SlotStatus.BOOKED, SlotStatus.BLOCKED}:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Slot unavailable")
         slot.hold_expires_at = result.hold_expires_at
+        slot.status = SlotStatus.HELD
         db.add(slot)
         await db.commit()
     await analytics.capture(str(current_user.id), BookingEvents.SLOT_HELD, {"slot_id": decode_hashid_or_int(slot_id)})

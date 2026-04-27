@@ -5,7 +5,8 @@ from datetime import datetime, timedelta
 from celery import shared_task
 from sqlmodel import select
 
-from src.apps.booking.models import Booking, BookingStatus, Slot, SlotStatus, WaitlistEntry
+from src.apps.booking.models import Booking, BookingAuditEvent, BookingStatus, Slot, SlotStatus, WaitlistEntry
+from src.apps.booking.services.booking_service import get_booking_slots, promote_waitlist_entries_for_slots
 from src.apps.booking.services.notification_service import notify_booking_reminder
 from src.db.session import async_session_factory
 
@@ -28,6 +29,25 @@ def booking_release_expired_holds_task() -> int:
                 slot.status = SlotStatus.OPEN
                 slot.hold_expires_at = None
                 session.add(slot)
+                pending_bookings_result = await session.execute(
+                    select(Booking).where(Booking.status == BookingStatus.PENDING)
+                )
+                for booking in pending_bookings_result.scalars().all():
+                    booking_slots = await get_booking_slots(db=session, booking_id=booking.id)
+                    if any(booking_slot.id == slot.id for booking_slot in booking_slots):
+                        booking.status = BookingStatus.CANCELLED
+                        booking.updated_at = now
+                        booking.cancelled_at = now
+                        session.add(booking)
+                        session.add(
+                            BookingAuditEvent(
+                                tenant_id=booking.tenant_id,
+                                booking_id=booking.id,
+                                actor_user_id=booking.user_id,
+                                event_type="booking.expired",
+                                payload_json=f'{{"slot_id":{slot.id}}}',
+                            )
+                        )
             await session.commit()
             return len(slots)
 
@@ -63,29 +83,23 @@ def booking_promote_waitlist_task() -> int:
 
     async def _run() -> int:
         async with async_session_factory() as session:
-            result = await session.execute(
-                select(WaitlistEntry)
-                .where(WaitlistEntry.is_active)
-                .order_by(WaitlistEntry.created_at.asc())
+            waitlist_result = await session.execute(
+                select(WaitlistEntry).where(WaitlistEntry.is_active)
             )
-            entries = result.scalars().all()
-            promoted = 0
-            for entry in entries:
-                slot_result = await session.execute(
-                    select(Slot).where(
-                        Slot.resource_id == entry.resource_id,
-                        Slot.status == SlotStatus.OPEN,
-                        Slot.starts_at >= entry.desired_start_at,
-                        Slot.ends_at <= entry.desired_end_at,
-                    ).order_by(Slot.starts_at.asc())
-                )
-                slot = slot_result.scalars().first()
-                if slot:
-                    entry.is_active = False
-                    session.add(entry)
-                    promoted += 1
+            if not waitlist_result.scalars().first():
+                return 0
+
+            slot_result = await session.execute(
+                select(Slot)
+                .where(Slot.status == SlotStatus.OPEN)
+                .order_by(Slot.starts_at.asc())
+            )
+            promoted_booking_ids = await promote_waitlist_entries_for_slots(
+                db=session,
+                released_slots=slot_result.scalars().all(),
+            )
             await session.commit()
-            return promoted
+            return len(promoted_booking_ids)
 
     import asyncio
     return asyncio.run(_run())

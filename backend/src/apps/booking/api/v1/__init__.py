@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 
+from .availability import router as availability_router
 from .analytics import router as analytics_router
 from .bookings import router as bookings_router
 from .disputes import router as disputes_router
@@ -10,6 +11,7 @@ from .reviews import router as reviews_router
 from .waitlist import router as waitlist_router
 
 router = APIRouter()
+router.include_router(availability_router)
 router.include_router(providers_router)
 router.include_router(analytics_router)
 router.include_router(resources_router)

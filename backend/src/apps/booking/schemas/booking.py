@@ -95,6 +95,8 @@ class BookingCreate(BaseModel):
     slot_id: int | str
     amount_minor: int = Field(ge=0)
     currency: str = Field(default="USD", min_length=3, max_length=3)
+    promo_code: Optional[str] = Field(default=None, max_length=40)
+    group_size: int = Field(default=1, ge=1, le=500)
     notes: str = Field(default="", max_length=2000)
 
 
@@ -221,6 +223,77 @@ class SlotRead(BaseModel):
     @field_serializer("id", "resource_id", "tenant_id")
     def _serialize_ids(self, value: int) -> str:
         return encode_id(value)
+
+
+class AvailabilityRuleCreate(BaseModel):
+    tenant_id: int | str
+    day_of_week: int = Field(ge=0, le=6)
+    start_minute: int = Field(ge=0, le=1439)
+    end_minute: int = Field(ge=1, le=1440)
+    slot_duration_min: int = Field(default=30, ge=5, le=720)
+    valid_from: Optional[datetime] = None
+    valid_to: Optional[datetime] = None
+    is_active: bool = True
+
+
+class AvailabilityRuleRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    resource_id: int
+    tenant_id: int
+    day_of_week: int
+    start_minute: int
+    end_minute: int
+    slot_duration_min: int
+    valid_from: Optional[datetime] = None
+    valid_to: Optional[datetime] = None
+    is_active: bool
+
+    @field_serializer("id", "resource_id", "tenant_id")
+    def _serialize_rule_ids(self, value: int) -> str:
+        return encode_id(value)
+
+
+class AvailabilityRuleUpdate(BaseModel):
+    day_of_week: int | None = Field(default=None, ge=0, le=6)
+    start_minute: int | None = Field(default=None, ge=0, le=1439)
+    end_minute: int | None = Field(default=None, ge=1, le=1440)
+    slot_duration_min: int | None = Field(default=None, ge=5, le=720)
+    valid_from: Optional[datetime] = None
+    valid_to: Optional[datetime] = None
+    is_active: bool | None = None
+
+
+class AvailabilityExceptionCreate(BaseModel):
+    tenant_id: int | str
+    starts_at: datetime
+    ends_at: datetime
+    is_available: bool = False
+    reason: str = Field(default="", max_length=255)
+
+
+class AvailabilityExceptionRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    resource_id: int
+    tenant_id: int
+    starts_at: datetime
+    ends_at: datetime
+    is_available: bool
+    reason: str
+
+    @field_serializer("id", "resource_id", "tenant_id")
+    def _serialize_exception_ids(self, value: int) -> str:
+        return encode_id(value)
+
+
+class AvailabilityExceptionUpdate(BaseModel):
+    starts_at: Optional[datetime] = None
+    ends_at: Optional[datetime] = None
+    is_available: bool | None = None
+    reason: str | None = Field(default=None, max_length=255)
 
 
 def decode_hashid_or_int(value: int | str) -> int:

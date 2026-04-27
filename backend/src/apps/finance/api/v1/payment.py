@@ -32,7 +32,7 @@ from src.apps.iam.utils.hashid import decode_id_or_404
 from src.apps.analytics.dependencies import get_analytics
 from src.apps.analytics.service import AnalyticsService
 from src.apps.analytics.events import PaymentEvents
-from src.apps.booking.models import Booking, BookingStatus, PaymentStatus as BookingPaymentStatus, Payout, PayoutStatus
+from src.apps.booking.models import Booking, BookingSlot, BookingStatus, PaymentStatus as BookingPaymentStatus, Payout, PayoutStatus, Slot, SlotStatus
 
 router = APIRouter()
 
@@ -189,6 +189,15 @@ async def verify_payment(
                     booking.payment_status = BookingPaymentStatus.COMPLETED
                     booking.status = BookingStatus.CONFIRMED
                     db.add(booking)
+                    booking_slots_result = await db.execute(
+                        select(BookingSlot).where(BookingSlot.booking_id == booking.id)
+                    )
+                    for booking_slot in booking_slots_result.scalars().all():
+                        slot = await db.get(Slot, booking_slot.slot_id)
+                        if slot is not None:
+                            slot.status = SlotStatus.BOOKED
+                            slot.hold_expires_at = None
+                            db.add(slot)
                     db.add(
                         Payout(
                             tenant_id=booking.tenant_id,

@@ -1,4 +1,10 @@
 from .booking import (
+    AvailabilityExceptionCreate,
+    AvailabilityExceptionRead,
+    AvailabilityExceptionUpdate,
+    AvailabilityRuleCreate,
+    AvailabilityRuleRead,
+    AvailabilityRuleUpdate,
     BookingAnalyticsSummary,
     BookingCreate,
     BookingCancelResponse,
@@ -32,6 +38,12 @@ from .booking import (
 )
 
 __all__ = [
+    "AvailabilityExceptionCreate",
+    "AvailabilityExceptionRead",
+    "AvailabilityExceptionUpdate",
+    "AvailabilityRuleCreate",
+    "AvailabilityRuleRead",
+    "AvailabilityRuleUpdate",
     "BookingAnalyticsSummary",
     "BookingCreate",
     "BookingCancelResponse",

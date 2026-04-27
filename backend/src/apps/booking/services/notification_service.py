@@ -10,8 +10,8 @@ async def notify_booking_created(db: AsyncSession, *, user_id: int, booking_id: 
         db,
         NotificationCreate(
             user_id=user_id,
-            title="Booking confirmed",
-            body=f"Your booking #{booking_id} has been confirmed.",
+            title="Booking reserved",
+            body=f"Your booking #{booking_id} is reserved. Complete checkout to confirm it.",
             type=NotificationType.SUCCESS,
             extra_data={"booking_id": booking_id, "event": "booking.created"},
         ),
